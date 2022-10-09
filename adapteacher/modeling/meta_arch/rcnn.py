@@ -196,7 +196,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
                     ResNet.make_default_stages(50, stride_in_1x1=True),
                     out_features=["res4"],
                 )
-            self.encoders_DE.to(self.backbone.device)
+            self.encoders_DE.to(self.device)
         if (not self.training) and (not val_mode):  # only conduct when testing mode
             return self.inference(batched_inputs)
 
