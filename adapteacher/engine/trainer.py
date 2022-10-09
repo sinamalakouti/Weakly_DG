@@ -318,6 +318,7 @@ class ATeacherTrainer(DefaultTrainer): #TODO
             optimizer=optimizer,
             scheduler=self.scheduler,
         )
+
         self.start_iter = 0
         self.max_iter = cfg.SOLVER.MAX_ITER
         self.cfg = cfg

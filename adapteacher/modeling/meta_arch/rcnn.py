@@ -3,6 +3,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from detectron2.modeling import ResNet
 from torch.nn import functional as F
 from detectron2.modeling.meta_arch.build import META_ARCH_REGISTRY
 from detectron2.modeling.meta_arch.rcnn import GeneralizedRCNN
@@ -13,10 +14,12 @@ import logging
 from typing import Dict, Tuple, List, Optional
 from collections import OrderedDict
 from detectron2.modeling.proposal_generator import build_proposal_generator
-from detectron2.modeling.backbone import build_backbone, Backbone
+from detectron2.modeling.backbone import build_backbone, Backbone, BasicStem
 from detectron2.modeling.roi_heads import build_roi_heads
 from detectron2.utils.events import get_event_storage
 from detectron2.structures import ImageList
+
+from adapteacher.modeling.meta_arch.model_definition import Generator
 
 
 ############### Image discriminator ##############
@@ -89,9 +92,9 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             vis_period: the period to run visualization. Set to 0 to disable.
         """
         super(GeneralizedRCNN, self).__init__()
+        self.encoders_DE = None
         self.backbone = backbone
         self.generator_IMG = None
-        self.encoders_DE = None
         self.proposal_generator = proposal_generator
         self.roi_heads = roi_heads
 
@@ -114,6 +117,8 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
         # self.D_img = None
         self.D_img = FCDiscriminator_img(self.backbone._out_feature_channels[self.dis_type])  # Need to know the channel
         # self.bceLoss_func = nn.BCEWithLogitsLoss()
+        self.generator_IMG = Generator(1024, 3, 4)
+
 
     def build_discriminator(self):
         self.D_img = FCDiscriminator_img(self.backbone._out_feature_channels[self.dis_type]).to(
@@ -175,6 +180,22 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
         """
         if self.D_img == None:
             self.build_discriminator()
+        if self.encoders_DE is None:
+            self.encoders_DE = nn.ModuleDict()  # (domain, encoder)
+
+            self.encoders_DE['unlabeled'] = \
+                ResNet(
+                    BasicStem(3, 64),
+                    ResNet.make_default_stages(50, stride_in_1x1=True),
+                    out_features=["res4"],
+                )
+
+            self.encoders_DE['labeled'] = \
+                ResNet(
+                    BasicStem(3, 64),
+                    ResNet.make_default_stages(50, stride_in_1x1=True),
+                    out_features=["res4"],
+                )
         if (not self.training) and (not val_mode):  # only conduct when testing mode
             return self.inference(batched_inputs)
 
@@ -199,9 +220,9 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
                                                               torch.FloatTensor(D_img_out_s.data.size()).fill_(
                                                                   source_label).to(self.device))
 
-            features_t = self.backbone(images_t.tensor)
+            features_t_orig = self.backbone(images_t.tensor)
 
-            features_t = grad_reverse(features_t[self.dis_type])
+            features_t = grad_reverse(features_t_orig[self.dis_type])
             # features_t = grad_reverse(features_t['p2'])
             D_img_out_t = self.D_img(features_t)
             loss_D_img_t = F.binary_cross_entropy_with_logits(D_img_out_t,
@@ -214,6 +235,14 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             losses = {}
             losses["loss_D_img_s"] = loss_D_img_s
             losses["loss_D_img_t"] = loss_D_img_t
+            features_DE_label = self.encoders_DE['labeled'](images_s.tensor)
+            G_img = self.generator_IMG(features[self.dis_type] + features_DE_label[self.dis_type])
+            loss_rec_img = F.mse_loss(images_s.tensor, G_img)
+            losses["loss_rec_img_s"] = loss_rec_img
+            features_DE_unlabel = self.encoders_DE['unlabeled'](images_t.tensor)
+            G_img = self.generator_IMG(features_t_orig[self.dis_type] + features_DE_unlabel[self.dis_type])
+            loss_rec_img = F.mse_loss(images_t.tensor, G_img)
+            losses["loss_rec_img_t"] = loss_rec_img
             return losses, [], [], None
 
         # self.D_img.eval()
@@ -259,6 +288,12 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             losses.update(detector_losses)
             losses.update(proposal_losses)
             losses["loss_D_img_s"] = loss_D_img_s * 0.001
+
+
+            features_DE_label = self.encoders_DE['labeled'](images.tensor)
+            G_img = self.generator_IMG(features_DI[self.dis_type] + features_DE_label[self.dis_type])
+            loss_rec_img = F.mse_loss(images.tensor, G_img)
+            losses["loss_rec_img_s"] = loss_rec_img
             return losses, [], [], None
 
 

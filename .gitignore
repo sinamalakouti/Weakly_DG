@@ -1,1 +1,12 @@
 **/__pycache__/
+*.iml
+*.xml
+.DS_Store
+*.png
+*.json
+*.0
+*.yaml
+*.yaml
+*.pth
+*.txt
+output/exp_city/last_checkpoint
