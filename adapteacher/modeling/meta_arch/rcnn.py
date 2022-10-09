@@ -291,10 +291,10 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             losses["loss_D_img_s"] = loss_D_img_s * 0.001
 
 
-            features_DE_label = self.encoders_DE['labeled'](images.tensor)
-            G_img = self.generator_IMG(features_DI[self.dis_type] + features_DE_label[self.dis_type])
-            loss_rec_img = F.mse_loss(images.tensor, G_img)
-            losses["loss_rec_img_s"] = loss_rec_img
+            # features_DE_label = self.encoders_DE['labeled'](images.tensor)
+            # G_img = self.generator_IMG(features_DI[self.dis_type] + features_DE_label[self.dis_type])
+            # loss_rec_img = F.mse_loss(images.tensor, G_img)
+            # losses["loss_rec_img_s"] = loss_rec_img
             return losses, [], [], None
 
 
