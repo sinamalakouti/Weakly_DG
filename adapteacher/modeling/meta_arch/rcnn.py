@@ -178,6 +178,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
                 The :class:`Instances` object has the following keys:
                 "pred_boxes", "pred_classes", "scores", "pred_masks", "pred_keypoints"
         """
+        torch.cuda.empty_cache()
         if self.D_img == None:
             self.build_discriminator()
         if self.encoders_DE is None:
@@ -233,6 +234,10 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             # import pdb
             # pdb.set_trace()
 
+            del features_t
+            del features_s
+            del D_img_out_t
+            del D_img_out_s
             losses = {}
             losses["loss_D_img_s"] = loss_D_img_s
             losses["loss_D_img_t"] = loss_D_img_t
