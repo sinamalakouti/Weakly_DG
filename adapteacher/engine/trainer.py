@@ -404,7 +404,7 @@ class ATeacherTrainer(DefaultTrainer): #TODO
                 self.before_train()
 
                 for self.iter in range(start_iter, max_iter):
-                    print("iter isss "  , self.iter)
+                    # print("iter isss "  , self.iter)
                     self.before_step()
                     self.run_step_full_semisup() #todo
                     self.after_step()
