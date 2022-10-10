@@ -8,7 +8,7 @@ import torch
 import detectron2.data.detection_utils as utils
 import detectron2.data.transforms as T
 from detectron2.data.dataset_mapper import DatasetMapper
-from adapteacher.data.detection_utils import build_strong_augmentation
+
 
 
 class DatasetMapperDG(DatasetMapper):
@@ -58,11 +58,20 @@ class DatasetMapperDG(DatasetMapper):
             sem_seg_gt = None
 
         aug_input = T.StandardAugInput(image, sem_seg=sem_seg_gt)
+        transforms = T.Resize((512, 1024))(aug_input)
         image_weak_aug, sem_seg_gt = aug_input.image, aug_input.sem_seg
         image_shape = image_weak_aug.shape[:2]  # h, w
 
         if sem_seg_gt is not None:
             dataset_dict["sem_seg"] = torch.as_tensor(sem_seg_gt.astype("long"))
+        if self.load_proposals:
+            utils.transform_proposals(
+                dataset_dict,
+                image_shape,
+                transforms,
+                proposal_topk=self.proposal_topk,
+                min_box_size=self.proposal_min_box_size,
+            )
 
         if not self.is_train:
             dataset_dict.pop("annotations", None)
@@ -76,7 +85,17 @@ class DatasetMapperDG(DatasetMapper):
                 if not self.keypoint_on:
                     anno.pop("keypoints", None)
 
-            annos = dataset_dict['annotations']
+            annos = [
+                utils.transform_instance_annotations(
+                    obj,
+                    transforms,
+                    image_shape,
+                    keypoint_hflip_indices=self.keypoint_hflip_indices,
+                )
+                for obj in dataset_dict.pop("annotations")
+                if obj.get("iscrowd", 0) == 0
+            ]
+
             instances = utils.annotations_to_instances(
                 annos, image_shape, mask_format=self.mask_format
             )

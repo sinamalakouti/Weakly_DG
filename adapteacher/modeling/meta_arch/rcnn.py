@@ -3,6 +3,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from detectron2.data.detection_utils import convert_image_to_rgb
 from detectron2.modeling import ResNet
 from torch.nn import functional as F
 from detectron2.modeling.meta_arch.build import META_ARCH_REGISTRY
@@ -22,6 +23,7 @@ from detectron2.structures import ImageList
 from adapteacher.modeling.meta_arch.model_definition import Generator
 
 
+from torchvision.transforms import CenterCrop
 ############### Image discriminator ##############
 class FCDiscriminator_img(nn.Module):
     def __init__(self, num_classes, ndf1=256, ndf2=128):
@@ -239,8 +241,6 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             del D_img_out_t
             del D_img_out_s
             losses = {}
-            losses["loss_D_img_s"] = loss_D_img_s
-            losses["loss_D_img_t"] = loss_D_img_t
             features_DE_label = self.encoders_DE['labeled'](images_s.tensor)
             G_img = self.generator_IMG(features[self.dis_type] + features_DE_label[self.dis_type])
             loss_rec_img = F.mse_loss(images_s.tensor, G_img)
@@ -249,6 +249,10 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             G_img = self.generator_IMG(features_t_orig[self.dis_type] + features_DE_unlabel[self.dis_type])
             loss_rec_img = F.mse_loss(images_t.tensor, G_img)
             losses["loss_rec_img_t"] = loss_rec_img
+
+            losses["loss_D_img_s"] = loss_D_img_s
+            losses["loss_D_img_t"] = loss_D_img_t
+
             return losses, [], [], None
 
         # self.D_img.eval()
