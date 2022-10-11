@@ -121,7 +121,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
         # self.bceLoss_func = nn.BCEWithLogitsLoss()
         self.generator_IMG = Generator(1024, 3, 4)
 
-
+        self.MSE_LOSS = nn.MSELoss()
     def build_discriminator(self):
         self.D_img = FCDiscriminator_img(self.backbone._out_feature_channels[self.dis_type]).to(
             self.device)  # Need to know the channel
@@ -240,18 +240,42 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             del features_s
             del D_img_out_t
             del D_img_out_s
+
+            if "instances" in batched_inputs[0]:
+                gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
+            else:
+                gt_instances = None
+            proposals_rpn, proposal_losses = self.proposal_generator(
+                images_s, features, gt_instances
+            )
+
+            # roi_head lower branch
+            _, detector_losses = self.roi_heads(
+                images_s,
+                features,
+                proposals_rpn,
+                #               compute_loss=True,
+                targets=gt_instances,
+                #                branch=branch,
+            )
+
+
+
             losses = {}
+            losses.update(detector_losses)
+            losses.update(proposal_losses)
+
             features_DE_label = self.encoders_DE['labeled'](images_s.tensor)
             G_img = self.generator_IMG(features[self.dis_type] + features_DE_label[self.dis_type])
-            loss_rec_img = F.mse_loss(images_s.tensor, G_img)
-            losses["loss_rec_img_s"] = loss_rec_img
+            loss_rec_img = self.MSE_LOSS(images_s.tensor, G_img)
+            losses["loss_rec_img_s"] = loss_rec_img * 0.01
             features_DE_unlabel = self.encoders_DE['unlabeled'](images_t.tensor)
             G_img = self.generator_IMG(features_t_orig[self.dis_type] + features_DE_unlabel[self.dis_type])
-            loss_rec_img = F.mse_loss(images_t.tensor, G_img)
-            losses["loss_rec_img_t"] = loss_rec_img
+            loss_rec_img = self.MSE_LOSS(images_t.tensor, G_img)
+            losses["loss_rec_img_t"] = loss_rec_img * 0.01
 
-            losses["loss_D_img_s"] = loss_D_img_s
-            losses["loss_D_img_t"] = loss_D_img_t
+            losses["loss_D_img_s"] = loss_D_img_s * 0.01
+            losses["loss_D_img_t"] = loss_D_img_t * 0.01
 
             return losses, [], [], None
 
