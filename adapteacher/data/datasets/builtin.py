@@ -2,6 +2,7 @@
 import os
 import contextlib
 from detectron2.data import DatasetCatalog, MetadataCatalog
+from detectron2.data.datasets import register_coco_instances
 from fvcore.common.timer import Timer
 # from fvcore.common.file_io import PathManager
 from iopath.common.file_io import PathManager
@@ -35,6 +36,7 @@ def register_coco_unlabel(root):
             register_coco_unlabel_instances(
                 key, meta, os.path.join(root, json_file), os.path.join(root, image_root)
             )
+
 
 
 def register_coco_unlabel_instances(name, metadata, json_file, image_root):
@@ -165,6 +167,13 @@ def register_all_clipart(root):
         MetadataCatalog.get(name).evaluator_type = "pascal_voc"
         # MetadataCatalog.get(name).evaluator_type = "coco"
 
+
+def register_all_bdd(root):
+    # root = "manifold://mobile_vision_dataset/tree/yujheli/dataset"
+    label_dir = os.path.join(root,'bdd100k/images/100k/val.json')
+    img_dir = os.path.join(root, 'bdd100k/images/100k/data')
+    register_coco_instances("bdd", {},  label_dir, img_dir)
+
 # ==== Predefined splits for Watercolor (PASCAL VOC format) ===========
 def register_all_water(root):
     # root = "manifold://mobile_vision_dataset/tree/yujheli/dataset"
@@ -184,4 +193,4 @@ def register_all_water(root):
 register_all_cityscapes_foggy(_root)
 register_all_clipart(_root)
 register_all_water(_root)
-
+register_all_bdd(_root)

@@ -10,3 +10,4 @@
 *.pth
 *.txt
 output/exp_city/last_checkpoint
+*.jpg
