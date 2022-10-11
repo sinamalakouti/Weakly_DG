@@ -265,17 +265,17 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             losses.update(detector_losses)
             losses.update(proposal_losses)
 
-            features_DE_label = self.encoders_DE['labeled'](images_s.tensor)
-            G_img = self.generator_IMG(features[self.dis_type] + features_DE_label[self.dis_type])
-            loss_rec_img = self.MSE_LOSS(images_s.tensor, G_img)
-            losses["loss_rec_img_s"] = loss_rec_img * 0.01
-            features_DE_unlabel = self.encoders_DE['unlabeled'](images_t.tensor)
-            G_img = self.generator_IMG(features_t_orig[self.dis_type] + features_DE_unlabel[self.dis_type])
-            loss_rec_img = self.MSE_LOSS(images_t.tensor, G_img)
-            losses["loss_rec_img_t"] = loss_rec_img * 0.01
+            # features_DE_label = self.encoders_DE['labeled'](images_s.tensor)
+            # G_img = self.generator_IMG(features[self.dis_type] + features_DE_label[self.dis_type])
+            # loss_rec_img = self.MSE_LOSS(images_s.tensor, G_img)
+            # losses["loss_rec_img_s"] = loss_rec_img * 0.01
+            # features_DE_unlabel = self.encoders_DE['unlabeled'](images_t.tensor)
+            # G_img = self.generator_IMG(features_t_orig[self.dis_type] + features_DE_unlabel[self.dis_type])
+            # loss_rec_img = self.MSE_LOSS(images_t.tensor, G_img)
+            # losses["loss_rec_img_t"] = loss_rec_img * 0.01
 
-            losses["loss_D_img_s"] = loss_D_img_s * 0.01
-            losses["loss_D_img_t"] = loss_D_img_t * 0.01
+            losses["loss_D_img_s"] = loss_D_img_s#* 0.01
+            losses["loss_D_img_t"] = loss_D_img_t #* 0.01
 
             return losses, [], [], None
 
