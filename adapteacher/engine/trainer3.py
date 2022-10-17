@@ -335,10 +335,10 @@ class ATeacherTrainer(DefaultTrainer):
             unlabel_data_k = self.remove_label(unlabel_data_k) # TODO: why? update only remove
 
             #  1. generate the pseudo-label using teacher model
-            for param in self.model.proposal_generator.parameters():
+            for param in self.model.module.proposal_generator.parameters():
                 param.grad = None
 
-            for param in self.model.roi_heads.parameters():
+            for param in self.model.module.roi_heads.parameters():
                 param.grad = None
             with torch.no_grad():
                 (
@@ -454,7 +454,7 @@ class ATeacherTrainer(DefaultTrainer):
         self.optimizer.zero_grad()
         losses.backward()
         self.optimizer.step()
-        print("here")
+        
 
     def _write_metrics(self, metrics_dict: dict):
         metrics_dict = {
