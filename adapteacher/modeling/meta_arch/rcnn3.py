@@ -119,7 +119,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
         # self.D_img = None
         self.D_img = FCDiscriminator_img(self.backbone._out_feature_channels[self.dis_type])  # Need to know the channel
         # self.bceLoss_func = nn.BCEWithLogitsLoss()
-        # self.generator_IMG = Generator(1024, 3, 4)
+        self.generator_IMG = Generator(1024, 3, 4)
 
         self.MSE_LOSS = nn.MSELoss()
     def build_discriminator(self):
@@ -236,37 +236,37 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             # import pdb
             # pdb.set_trace()
 
-            # del features_t
-            # del features_s
-            # del D_img_out_t
-            # del D_img_out_s
-            #
-            # if "instances" in batched_inputs[0]:
-            #     gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
-            # else:
-            #     gt_instances = None
-            # proposals_rpn, proposal_losses = self.proposal_generator(
-            #     images_s, features, gt_instances
-            # )
-            #
-            # # roi_head lower branch
-            # _, detector_losses = self.roi_heads(
-            #     images_s,
-            #     features,
-            #     proposals_rpn,
-            #     #               compute_loss=True,
-            #     targets=gt_instances,
-            #     #                branch=branch,
-            # )
+            del features_t
+            del features_s
+            del D_img_out_t
+            del D_img_out_s
 
-            # if self.vis_period > 0:
-            #     storage = get_event_storage()
-            #     if storage.iter % self.vis_period == 0:
-            #         self.visualize_training(batched_inputs, proposals_rpn, branch)
+            if "instances" in batched_inputs[0]:
+                gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
+            else:
+                gt_instances = None
+            proposals_rpn, proposal_losses = self.proposal_generator(
+                images_s, features, gt_instances
+            )
+
+            # roi_head lower branch
+            _, detector_losses = self.roi_heads(
+                images_s,
+                features,
+                proposals_rpn,
+                #               compute_loss=True,
+                targets=gt_instances,
+                #                branch=branch,
+            )
+
+            if self.vis_period > 0:
+                storage = get_event_storage()
+                if storage.iter % self.vis_period == 0:
+                    self.visualize_training(batched_inputs, proposals_rpn, branch)
 
             losses = {}
-            # losses.update(detector_losses)
-            # losses.update(proposal_losses)
+            losses.update(detector_losses)
+            losses.update(proposal_losses)
 
             # features_DE_label = self.encoders_DE['labeled'](images_s.tensor)
             # G_img = self.generator_IMG(features[self.dis_type] + features_DE_label[self.dis_type])
@@ -312,11 +312,11 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
                 proposals_rpn,
  #               compute_loss=True,
                 targets=gt_instances,
-#                branch=branch, #TODO check this shit
+#                branch=branch,
             )
 
             # visualization
-            # self.vis_period = 1
+            self.vis_period = 1
             if self.vis_period > 0:
                 storage = get_event_storage()
                 if storage.iter % self.vis_period == 0:
@@ -333,29 +333,6 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             # loss_rec_img = F.mse_loss(images.tensor, G_img)
             # losses["loss_rec_img_s"] = loss_rec_img
             return losses, [], [], None
-
-        elif branch == "unsup_data_weak":  # TODO what is this for :)
-            """
-            unsupervised weak branch: input image without any ground-truth label; output proposals of rpn and roi-head
-            """
-            # Region proposal network
-            proposals_rpn, _ = self.proposal_generator(
-                images, features_DI, None, compute_loss=False
-            )
-
-            # roi_head lower branch (keep this for further production)
-            # notice that we do not use any target in ROI head to do inference!
-            proposals_roih, ROI_predictions = self.roi_heads(
-                images,
-                features_DI,
-                proposals_rpn,
-                targets=None,
-                compute_loss=False,
-                # branch=branch,
-            )
-            return {}, proposals_rpn, proposals_roih, ROI_predictions
-        elif branch == "backbone":
-            return features_DI, images, gt_instances
 
 
 

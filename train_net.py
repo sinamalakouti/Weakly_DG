@@ -7,8 +7,8 @@ from detectron2.config import get_cfg
 from detectron2.engine import default_argument_parser, default_setup, launch
 
 from adapteacher import add_ateacher_config
-from adapteacher.engine.trainer import ATeacherTrainer, BaselineTrainer
-
+# from adapteacher.engine.trainer import ATeacherTrainer, BaselineTrainer
+from adapteacher.engine.trainer3 import ATeacherTrainer, BaselineTrainer
 # hacky way to register
 from adapteacher.modeling.meta_arch.rcnn import DGobjGeneralizedRCNN  #TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
 from adapteacher.modeling.meta_arch.vgg import build_vgg_backbone  # noqa
@@ -25,10 +25,14 @@ def setup(args):
     """
     cfg = get_cfg()
     add_ateacher_config(cfg)
+    args.config_file = 'configs/faster_rcnn_VGG_cross_city.yaml'
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()
     default_setup(cfg, args)
+    cfg['config'] = 'configs/faster_rcnn_VGG_cross_city.yaml'
+    cfg['num-gpus'] = 4
+    cfg['OUTPUT_DIR'] = 'output/exp_city'
     return cfg
 
 
@@ -40,7 +44,7 @@ def main(args):
         Trainer = BaselineTrainer
     else:
         raise ValueError("Trainer Name is not found.")
-
+    # args.eval_only = True
     if args.eval_only:
         if cfg.SEMISUPNET.Trainer == "ateacher":
             model = Trainer.build_model(cfg)
@@ -48,9 +52,9 @@ def main(args):
             ensem_ts_model = EnsembleTSModel(model_teacher, model)
 
             DetectionCheckpointer(
-                ensem_ts_model, save_dir=cfg.OUTPUT_DIR
+                model, save_dir=cfg.OUTPUT_DIR
             ).resume_or_load(cfg.MODEL.WEIGHTS, resume=args.resume)
-            res = Trainer.test(cfg, ensem_ts_model.modelTeacher)
+            res = Trainer.test(cfg,model)
 
         else:
             model = Trainer.build_model(cfg)
