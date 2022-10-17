@@ -13,3 +13,4 @@ output/exp_city/last_checkpoint
 *.jpg
 *.lock
 *.yaml
+configs/faster_rcnn_VGG_cross_city.yaml

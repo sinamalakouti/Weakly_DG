@@ -294,6 +294,7 @@ class ATeacherTrainer(DefaultTrainer):
 
         # create an student model
         model = self.build_model(cfg)
+
         # create an teacher model
         s1_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg, backbone_output_shape=model.backbone.output_shape(),
                               vis_period=0).to(model.device)
@@ -314,7 +315,7 @@ class ATeacherTrainer(DefaultTrainer):
             )
         self.s1_head = s1_head
         self.s2_head = s2_head
-        ensemmbl_ts_model = EnsembleTSModel(model, self.s1_head, self.s2_head)
+        ensemmbl_ts_model = EnsembleTSModel(self.teacher_model, self.s1_head, self.s2_head)
         optimizer = self.build_optimizer(cfg, ensemmbl_ts_model)
         TrainerBase.__init__(self)
         self._trainer = (AMPTrainer if cfg.SOLVER.AMP.ENABLED else SimpleTrainer)(
@@ -544,8 +545,8 @@ class ATeacherTrainer(DefaultTrainer):
         else:
             if self.iter == self.cfg.SEMISUPNET.BURN_UP_STEP:
                 # update copy the  whole model
-                self._update_teacher_model(keep_rate=0.00) #TODO: we need to update how ot update the teacher_model ( only heads )
-
+                # self._update_teacher_model(keep_rate=0.00) #TODO: we need to update how ot update the teacher_model ( only heads )
+                self.__init_student_heads()
             elif (
                     self.iter - self.cfg.SEMISUPNET.BURN_UP_STEP
             ) % self.cfg.SEMISUPNET.TEACHER_UPDATE_ITER == 0:
@@ -720,35 +721,32 @@ class ATeacherTrainer(DefaultTrainer):
     def _update_teacher_model(self, keep_rate=0.9996):
 
         if comm.get_world_size() > 1:
-            head_s1_rpn_dict = self.model.module.s1_head.proposal_generator.state_dict()
-            head_s1_roi_dict = self.model.module.s1_head.roi_heads.state_dict()
-        #     head_s1_rpn_dict = {
-        #         key[7:]: value for key, value in self.model.module.s1_head.proposal_generator.state_dict().items()
-        #     }
-        #
-        #     head_s1_roi_dict = {
-        #         key[7:]: value for key, value in self.model.s1_head.roi_heads.state_dict().items()
-        #     }
+            head_s1_rpn_dict = {
+                key[7:]: value for key, value in self.s1_head.module.proposal_generator.state_dict().items()
+            }
+
+            head_s1_roi_dict = {
+                key[7:]: value for key, value in self.s1_head.module.roi_heads.state_dict().items()
+            }
         else:
-            head_s1_rpn_dict = self.model.s1_head.proposal_generator.state_dict()
-            head_s1_roi_dict = self.model.s1_head.roi_heads.state_dict()
+            head_s1_rpn_dict = self.s1_head.proposal_generator.state_dict()
+            head_s1_roi_dict = self.s1_head.roi_heads.state_dict()
 
 
         if comm.get_world_size() > 1:
-            head_s2_rpn_dict = self.model.s2_head.proposal_generator.state_dict()
-            head_s2_roi_dict = self.model.s2_head.roi_heads.state_dict()
-            # head_s2_rpn_dict = {
-            #     key[7:]: value for key, value in self.model.s2_head.proposal_generator.state_dict().items()
-            # }
-            # head_s2_roi_dict = {
-            #     key[7:]: value for key, value in self.model.s2_head.roi_heads.state_dict().items()
-            # }
+
+            head_s2_rpn_dict = {
+                key[7:]: value for key, value in self.s2_head.module.proposal_generator.state_dict().items()
+            }
+            head_s2_roi_dict = {
+                key[7:]: value for key, value in self.s2_head.module.roi_heads.state_dict().items()
+            }
         else:
-            head_s2_rpn_dict = self.model.s2_head.proposal_generator.state_dict()
-            head_s2_roi_dict = self.model.s2_head.roi_heads.state_dict()
+            head_s2_rpn_dict = self.s2_head.proposal_generator.state_dict()
+            head_s2_roi_dict = self.s2_head.roi_heads.state_dict()
 
         new_teacher_dict = OrderedDict()
-        for key, value in self.model_teacher.proposal_generator.state_dict().items():
+        for key, value in self.model.moduel.proposal_generator.state_dict().items():
             if key in head_s1_rpn_dict.keys() and key in head_s2_rpn_dict.keys():
                 new_teacher_dict[key] = (
                         (head_s1_rpn_dict[key] * 0.5 + head_s2_rpn_dict[key] * 0.5 ) *
@@ -756,13 +754,13 @@ class ATeacherTrainer(DefaultTrainer):
                 )
             else:
                 raise Exception("{} is not found in student model".format(key))
-        if comm.get_world_size() > 1:
-            self.model.model_teacher.proposal_generator.load_state_dict(new_teacher_dict)
-        else:
-            self.model_teacher.proposal_generator.load_state_dict(new_teacher_dict)
+        # if comm.get_world_size() > 1:
+        #     self.model.proposal_generator.load_state_dict(new_teacher_dict)
+        # else:
+        self.model.moduel.proposal_generator.load_state_dict(new_teacher_dict)
 
         new_teacher_dict = OrderedDict()
-        for key, value in self.model_teacher.roi_heads.state_dict().items():
+        for key, value in self.model.moduel.roi_heads.state_dict().items():
             if key in head_s1_roi_dict.keys() and key in head_s2_roi_dict.keys():
                 new_teacher_dict[key] = (
                         (head_s1_roi_dict[key] * 0.5 + head_s2_roi_dict[key] * 0.5) *
@@ -771,9 +769,25 @@ class ATeacherTrainer(DefaultTrainer):
             else:
                 raise Exception("{} is not found in student model".format(key))
 
-        self.model_teacher.roi_heads.load_state_dict(new_teacher_dict)
+        self.model.moduel.roi_heads.load_state_dict(new_teacher_dict)
 
+    @torch.no_grad()
+    def _init_student_heads(self):
+        if comm.get_world_size() > 1:
+            rename_model_dict = {
+                key[7:]: value for key, value in self.model.state_dict().items()
+            }
+            self.s1_head.module.proposal_generator.load_state_dict(self.model.module.proposal_generator.state_dict())
+            self.s2_head.module.proposal_generator.load_state_dict(self.model.module.proposal_generator.state_dict())
 
+            self.s1_head.module.roi_heads.load_state_dict(self.model.module.roi_heads.state_dict())
+            self.s2_head.module.roi_heads.load_state_dict(self.model.module.roi_heads.state_dict())
+        else:
+            self.s1_head.proposal_generator.load_state_dict(self.model.proposal_generator.state_dict())
+            self.s2_head.proposal_generator.load_state_dict(self.model.proposal_generator.state_dict())
+
+            self.s1_head.roi_heads.load_state_dict(self.model.roi_heads.state_dict())
+            self.s2_head.roi_heads.load_state_dict(self.model.roi_heads.state_dict())
 
     @torch.no_grad()
     def _copy_main_model(self):
@@ -831,11 +845,11 @@ class ATeacherTrainer(DefaultTrainer):
 
         def test_and_save_results_teacher():
             self._last_eval_results_teacher = self.test(
-                self.cfg, self.model_student)
+                self.cfg, self.model)
             return self._last_eval_results_teacher
 
-        ret.append(hooks.EvalHook(cfg.TEST.EVAL_PERIOD,
-                                  test_and_save_results_student))
+        # ret.append(hooks.EvalHook(cfg.TEST.EVAL_PERIOD,
+        #                           test_and_save_results_student))
         ret.append(hooks.EvalHook(cfg.TEST.EVAL_PERIOD,
                                   test_and_save_results_teacher))
 
