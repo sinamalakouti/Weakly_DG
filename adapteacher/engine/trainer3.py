@@ -527,7 +527,7 @@ class ATeacherTrainer(DefaultTrainer):
         # label_strong, label_weak, unlabed_strong, unlabled_weak
         label_data_k, unlabel_data_k = data
         data_time = time.perf_counter() - start
-        print("iter issss  ", self.iter)
+        # print("iter issss  ", self.iter)
 
         # burn-in stage (supervised training with labeled data)
         if self.iter < self.cfg.SEMISUPNET.BURN_UP_STEP:
@@ -546,7 +546,7 @@ class ATeacherTrainer(DefaultTrainer):
             if self.iter == self.cfg.SEMISUPNET.BURN_UP_STEP:
                 # update copy the  whole model
                 # self._update_teacher_model(keep_rate=0.00) #TODO: we need to update how ot update the teacher_model ( only heads )
-                self.__init_student_heads()
+                self._init_student_heads()
             elif (
                     self.iter - self.cfg.SEMISUPNET.BURN_UP_STEP
             ) % self.cfg.SEMISUPNET.TEACHER_UPDATE_ITER == 0:
