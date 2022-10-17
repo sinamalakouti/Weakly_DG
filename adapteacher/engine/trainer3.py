@@ -64,7 +64,7 @@ class ATeacherTrainer(DefaultTrainer):
 
         # create an teacher model
         s1_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg, backbone_output_shape=model.backbone.output_shape(),
-                              vis_period=0).to('cuda')
+                              vis_period=0).to()
         s2_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg, backbone_output_shape=model.backbone.output_shape(),
                               vis_period=0).to('cuda')
 
@@ -75,11 +75,11 @@ class ATeacherTrainer(DefaultTrainer):
                 print("comm.get_world_size()    ", comm.get_world_size() )
             print(" comm.get_local_rank()   ", comm.get_local_rank())
             model = DistributedDataParallel(
-                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False)
+                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
             s1_head = DistributedDataParallel(
-                s1_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False)
+                s1_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
             s2_head = DistributedDataParallel(
-                s2_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False)
+                s2_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
         self.s1_head = s1_head
         self.s2_head = s2_head
         ensemmbl_ts_model = EnsembleTSModel(model, self.s1_head, self.s2_head)
