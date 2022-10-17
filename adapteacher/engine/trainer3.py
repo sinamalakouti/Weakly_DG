@@ -746,7 +746,7 @@ class ATeacherTrainer(DefaultTrainer):
             head_s2_roi_dict = self.s2_head.roi_heads.state_dict()
 
         new_teacher_dict = OrderedDict()
-        for key, value in self.model.moduel.proposal_generator.state_dict().items():
+        for key, value in self.model.module.proposal_generator.state_dict().items():
             if key in head_s1_rpn_dict.keys() and key in head_s2_rpn_dict.keys():
                 new_teacher_dict[key] = (
                         (head_s1_rpn_dict[key] * 0.5 + head_s2_rpn_dict[key] * 0.5 ) *
@@ -757,10 +757,10 @@ class ATeacherTrainer(DefaultTrainer):
         # if comm.get_world_size() > 1:
         #     self.model.proposal_generator.load_state_dict(new_teacher_dict)
         # else:
-        self.model.moduel.proposal_generator.load_state_dict(new_teacher_dict)
+        self.model.module.proposal_generator.load_state_dict(new_teacher_dict)
 
         new_teacher_dict = OrderedDict()
-        for key, value in self.model.moduel.roi_heads.state_dict().items():
+        for key, value in self.model.module.roi_heads.state_dict().items():
             if key in head_s1_roi_dict.keys() and key in head_s2_roi_dict.keys():
                 new_teacher_dict[key] = (
                         (head_s1_roi_dict[key] * 0.5 + head_s2_roi_dict[key] * 0.5) *
@@ -769,7 +769,7 @@ class ATeacherTrainer(DefaultTrainer):
             else:
                 raise Exception("{} is not found in student model".format(key))
 
-        self.model.moduel.roi_heads.load_state_dict(new_teacher_dict)
+        self.model.module.roi_heads.load_state_dict(new_teacher_dict)
 
     @torch.no_grad()
     def _init_student_heads(self):
