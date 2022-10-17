@@ -721,35 +721,42 @@ class ATeacherTrainer(DefaultTrainer):
     def _update_teacher_model(self, keep_rate=0.9996):
 
         if comm.get_world_size() > 1:
-            head_s1_rpn_dict = {
-                key[7:]: value for key, value in self.s1_head.module.proposal_generator.state_dict().items()
+            head_s1_dict = {
+                key[7:]: value for key, value in self.s1_head.state_dict().items()
             }
 
-            head_s1_roi_dict = {
-                key[7:]: value for key, value in self.s1_head.module.roi_heads.state_dict().items()
-            }
+            # head_s1_roi_dict = {
+            #     key[7:]: value for key, value in self.s1_head.module.roi_heads.state_dict().items()
+            # }
+            # head_s1_rpn_dict = self.s1_head.module.proposal_generator.state_dict()
+            # head_s1_roi_dict = self.s1_head.roi_heads.state_dict()
         else:
-            head_s1_rpn_dict = self.s1_head.proposal_generator.state_dict()
-            head_s1_roi_dict = self.s1_head.roi_heads.state_dict()
+            head_s1_dict = self.s1_head.state_dict()
+            # head_s1_rpn_dict = self.s1_head.proposal_generator.state_dict()
+            # head_s1_roi_dict = self.s1_head.roi_heads.state_dict()
 
 
         if comm.get_world_size() > 1:
 
-            head_s2_rpn_dict = {
-                key[7:]: value for key, value in self.s2_head.module.proposal_generator.state_dict().items()
-            }
-            head_s2_roi_dict = {
-                key[7:]: value for key, value in self.s2_head.module.roi_heads.state_dict().items()
+            # head_s2_rpn_dict = {
+            #     key[7:]: value for key, value in self.s2_head.module.proposal_generator.state_dict().items()
+            # }
+            # head_s2_roi_dict = {
+            #     key[7:]: value for key, value in self.s2_head.module.roi_heads.state_dict().items()
+            # }
+            head_s2_dict = {
+                key[7:]: value for key, value in self.s2_head.state_dict().items()
             }
         else:
-            head_s2_rpn_dict = self.s2_head.proposal_generator.state_dict()
-            head_s2_roi_dict = self.s2_head.roi_heads.state_dict()
+            head_s2_dict = self.s2_head.state_dict()
+            # head_s2_rpn_dict = self.s2_head.proposal_generator.state_dict()
+            # head_s2_roi_dict = self.s2_head.roi_heads.state_dict()
 
         new_teacher_dict = OrderedDict()
         for key, value in self.model.module.proposal_generator.state_dict().items():
-            if key in head_s1_rpn_dict.keys() and key in head_s2_rpn_dict.keys():
+            if key in head_s1_dict.keys() and key in head_s2_dict.keys():
                 new_teacher_dict[key] = (
-                        (head_s1_rpn_dict[key] * 0.5 + head_s2_rpn_dict[key] * 0.5 ) *
+                        (head_s1_dict[key] * 0.5 + head_s2_dict[key] * 0.5 ) *
                         (1 - keep_rate) + value * keep_rate
                 )
             else:
@@ -761,9 +768,9 @@ class ATeacherTrainer(DefaultTrainer):
 
         new_teacher_dict = OrderedDict()
         for key, value in self.model.module.roi_heads.state_dict().items():
-            if key in head_s1_roi_dict.keys() and key in head_s2_roi_dict.keys():
+            if key in head_s1_dict.keys() and key in head_s2_dict.keys():
                 new_teacher_dict[key] = (
-                        (head_s1_roi_dict[key] * 0.5 + head_s2_roi_dict[key] * 0.5) *
+                        (head_s1_dict[key] * 0.5 + head_s2_dict[key] * 0.5) *
                         (1 - keep_rate) + value * keep_rate
                 )
             else:
@@ -774,9 +781,7 @@ class ATeacherTrainer(DefaultTrainer):
     @torch.no_grad()
     def _init_student_heads(self):
         if comm.get_world_size() > 1:
-            rename_model_dict = {
-                key[7:]: value for key, value in self.model.state_dict().items()
-            }
+
             self.s1_head.module.proposal_generator.load_state_dict(self.model.module.proposal_generator.state_dict())
             self.s2_head.module.proposal_generator.load_state_dict(self.model.module.proposal_generator.state_dict())
 
