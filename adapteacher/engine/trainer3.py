@@ -65,10 +65,10 @@ class ATeacherTrainer(DefaultTrainer):
         # create an teacher model
         s1_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg,
                               backbone_output_shape=model.backbone.output_shape(),
-                              vis_period=0)#.to('cuda')
+                              vis_period=0).to('cuda')
         s2_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg,
                               backbone_output_shape=model.backbone.output_shape(),
-                              vis_period=0)#.to('cuda')
+                              vis_period=0).to('cuda')
 
 
         # For training, wrap with DDP. But don't need this for inference.
