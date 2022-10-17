@@ -18,10 +18,10 @@ class EnsembleTSModel(nn.Module):
         self.s1_head = s1_head
         self.s2_head = s2_head
 
-    def forward(self, model_type, *args):
+    def forward(self, model_type, branch, *args):
         if model_type == 'teacher':
-            return self.modelTeacher(args)
+            return self.modelTeacher(args, branch=branch)
         elif model_type == 's1head':
-            return self.s1_head(args)
+            return self.s1_head(args, branch=branch)
         elif model_type == 's2head':
-            return self.s2_head(args)
+            return self.s2_head(args, branch=branch)
