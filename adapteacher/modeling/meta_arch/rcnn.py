@@ -94,7 +94,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             vis_period: the period to run visualization. Set to 0 to disable.
         """
         super(GeneralizedRCNN, self).__init__()
-        self.encoders_DE = None
+        # self.encoders_DE = None
         self.backbone = backbone
         self.generator_IMG = None
         self.proposal_generator = proposal_generator
@@ -183,23 +183,23 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
         torch.cuda.empty_cache()
         if self.D_img == None:
             self.build_discriminator()
-        if self.encoders_DE is None:
-            self.encoders_DE = nn.ModuleDict()  # (domain, encoder)
-
-            self.encoders_DE['unlabeled'] = \
-                ResNet(
-                    BasicStem(3, 64),
-                    ResNet.make_default_stages(50, stride_in_1x1=True),
-                    out_features=["res4"],
-                )
-
-            self.encoders_DE['labeled'] = \
-                ResNet(
-                    BasicStem(3, 64),
-                    ResNet.make_default_stages(50, stride_in_1x1=True),
-                    out_features=["res4"],
-                )
-            self.encoders_DE.to(self.device)
+        # if self.encoders_DE is None:
+        #     self.encoders_DE = nn.ModuleDict()  # (domain, encoder)
+        #
+        #     self.encoders_DE['unlabeled'] = \
+        #         ResNet(
+        #             BasicStem(3, 64),
+        #             ResNet.make_default_stages(50, stride_in_1x1=True),
+        #             out_features=["res4"],
+        #         )
+        #
+        #     self.encoders_DE['labeled'] = \
+        #         ResNet(
+        #             BasicStem(3, 64),
+        #             ResNet.make_default_stages(50, stride_in_1x1=True),
+        #             out_features=["res4"],
+        #         )
+        #     self.encoders_DE.to(self.device)
         if (not self.training) and (not val_mode):  # only conduct when testing mode
             return self.inference(batched_inputs)
 

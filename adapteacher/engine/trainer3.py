@@ -44,240 +44,7 @@ from ..modeling.meta_arch.custom_head import Custom_head
 from ..modeling.meta_arch.ts_ensemble import EnsembleTSModel
 
 
-# Supervised-only Trainer
-class BaselineTrainer(DefaultTrainer):
-    def __init__(self, cfg):
-        """
-        Args:
-            cfg (CfgNode):
-        Use the custom checkpointer, which loads other backbone models
-        with matching heuristics.
-        """
-        cfg = DefaultTrainer.auto_scale_workers(cfg, comm.get_world_size())
-        model = self.build_model(cfg)
-        optimizer = self.build_optimizer(cfg, model)
-        data_loader = self.build_train_loader(cfg)
 
-        if comm.get_world_size() > 1:
-            model = DistributedDataParallel(
-                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False
-            )
-
-        TrainerBase.__init__(self)
-        self._trainer = (AMPTrainer if cfg.SOLVER.AMP.ENABLED else SimpleTrainer)(
-            model, data_loader, optimizer
-        )
-
-        self.scheduler = self.build_lr_scheduler(cfg, optimizer)
-        self.checkpointer = DetectionCheckpointer(
-            model,
-            cfg.OUTPUT_DIR,
-            optimizer=optimizer,
-            scheduler=self.scheduler,
-        )
-        self.start_iter = 0
-        self.max_iter = cfg.SOLVER.MAX_ITER
-        self.cfg = cfg
-
-        self.register_hooks(self.build_hooks())
-
-    def resume_or_load(self, resume=True):
-        """
-        If `resume==True` and `cfg.OUTPUT_DIR` contains the last checkpoint (defined by
-        a `last_checkpoint` file), resume from the file. Resuming means loading all
-        available states (eg. optimizer and scheduler) and update iteration counter
-        from the checkpoint. ``cfg.MODEL.WEIGHTS`` will not be used.
-        Otherwise, this is considered as an independent training. The method will load model
-        weights from the file `cfg.MODEL.WEIGHTS` (but will not load other states) and start
-        from iteration 0.
-        Args:
-            resume (bool): whether to do resume or not
-        """
-        checkpoint = self.checkpointer.resume_or_load(
-            self.cfg.MODEL.WEIGHTS, resume=resume
-        )
-        if resume and self.checkpointer.has_checkpoint():
-            self.start_iter = checkpoint.get("iteration", -1) + 1
-            # The checkpoint stores the training iteration that just finished, thus we start
-            # at the next iteration (or iter zero if there's no checkpoint).
-        if isinstance(self.model, DistributedDataParallel):
-            # broadcast loaded data/model from the first rank, because other
-            # machines may not have access to the checkpoint file
-            if TORCH_VERSION >= (1, 7):
-                self.model._sync_params_and_buffers()
-            self.start_iter = comm.all_gather(self.start_iter)[0]
-
-    def train_loop(self, start_iter: int, max_iter: int):
-        """
-        Args:
-            start_iter, max_iter (int): See docs above
-        """
-        logger = logging.getLogger(__name__)
-        logger.info("Starting training from iteration {}".format(start_iter))
-
-        self.iter = self.start_iter = start_iter
-        self.max_iter = max_iter
-
-        with EventStorage(start_iter) as self.storage:
-            try:
-                self.before_train()
-                for self.iter in range(start_iter, max_iter):
-                    self.before_step()
-                    self.run_step()
-                    self.after_step()
-            except Exception:
-                logger.exception("Exception during training:")
-                raise
-            finally:
-                self.after_train()
-
-    def run_step(self):
-        self._trainer.iter = self.iter
-
-        assert self.model.training, "[SimpleTrainer] model was changed to eval mode!"
-        start = time.perf_counter()
-
-        data = next(self._trainer._data_loader_iter)
-        data_time = time.perf_counter() - start
-
-        record_dict, _, _, _ = self.model(data, branch="supervised")
-
-        num_gt_bbox = 0.0
-        for element in data:
-            num_gt_bbox += len(element["instances"])
-        num_gt_bbox = num_gt_bbox / len(data)
-        record_dict["bbox_num/gt_bboxes"] = num_gt_bbox
-
-        loss_dict = {}
-        for key in record_dict.keys():
-            if key[:4] == "loss" and key[-3:] != "val":
-                loss_dict[key] = record_dict[key]
-
-        losses = sum(loss_dict.values())
-
-        metrics_dict = record_dict
-        metrics_dict["data_time"] = data_time
-        self._write_metrics(metrics_dict)
-
-        self.optimizer.zero_grad()
-        losses.backward()
-        self.optimizer.step()
-
-    @classmethod
-    def build_evaluator(cls, cfg, dataset_name, output_folder=None):
-        if output_folder is None:
-            output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
-        evaluator_list = []
-        evaluator_type = MetadataCatalog.get(dataset_name).evaluator_type
-
-        if evaluator_type == "coco":
-            evaluator_list.append(COCOEvaluator(
-                dataset_name, output_dir=output_folder))
-        elif evaluator_type == "pascal_voc":
-            return PascalVOCDetectionEvaluator(dataset_name)
-        elif evaluator_type == "pascal_voc_water":
-            return PascalVOCDetectionEvaluator(dataset_name,
-                                               target_classnames=["bicycle", "bird", "car", "cat", "dog", "person"])
-        if len(evaluator_list) == 0:
-            raise NotImplementedError(
-                "no Evaluator for the dataset {} with the type {}".format(
-                    dataset_name, evaluator_type
-                )
-            )
-        elif len(evaluator_list) == 1:
-            return evaluator_list[0]
-
-        return DatasetEvaluators(evaluator_list)
-
-    @classmethod
-    def build_train_loader(cls, cfg):
-        return build_detection_semisup_train_loader(cfg, mapper=None)
-
-    @classmethod
-    def build_test_loader(cls, cfg, dataset_name):
-        """
-        Returns:
-            iterable
-        """
-        return build_detection_test_loader(cfg, dataset_name)
-
-    def build_hooks(self):
-        """
-        Build a list of default hooks, including timing, evaluation,
-        checkpointing, lr scheduling, precise BN, writing events.
-
-        Returns:
-            list[HookBase]:
-        """
-        cfg = self.cfg.clone()
-        cfg.defrost()
-        cfg.DATALOADER.NUM_WORKERS = 0
-
-        ret = [
-            hooks.IterationTimer(),
-            hooks.LRScheduler(self.optimizer, self.scheduler),
-            hooks.PreciseBN(
-                cfg.TEST.EVAL_PERIOD,
-                self.model,
-                self.build_train_loader(cfg),
-                cfg.TEST.PRECISE_BN.NUM_ITER,
-            )
-            if cfg.TEST.PRECISE_BN.ENABLED and get_bn_modules(self.model)
-            else None,
-        ]
-
-        if comm.is_main_process():
-            ret.append(
-                hooks.PeriodicCheckpointer(
-                    self.checkpointer, cfg.SOLVER.CHECKPOINT_PERIOD
-                )
-            )
-
-        def test_and_save_results():
-            self._last_eval_results = self.test(self.cfg, self.model)
-            return self._last_eval_results
-
-        ret.append(hooks.EvalHook(cfg.TEST.EVAL_PERIOD, test_and_save_results))
-
-        if comm.is_main_process():
-            ret.append(hooks.PeriodicWriter(self.build_writers(), period=20))
-        return ret
-
-    def _write_metrics(self, metrics_dict: dict):
-        """
-        Args:
-            metrics_dict (dict): dict of scalar metrics
-        """
-        metrics_dict = {
-            k: v.detach().cpu().item() if isinstance(v, torch.Tensor) else float(v)
-            for k, v in metrics_dict.items()
-        }
-        # gather metrics among all workers for logging
-        # This assumes we do DDP-style training, which is currently the only
-        # supported method in detectron2.
-        all_metrics_dict = comm.gather(metrics_dict)
-
-        if comm.is_main_process():
-            if "data_time" in all_metrics_dict[0]:
-                data_time = np.max([x.pop("data_time")
-                                    for x in all_metrics_dict])
-                self.storage.put_scalar("data_time", data_time)
-
-            metrics_dict = {
-                k: np.mean([x[k] for x in all_metrics_dict])
-                for k in all_metrics_dict[0].keys()
-            }
-
-            loss_dict = {}
-            for key in metrics_dict.keys():
-                if key[:4] == "loss":
-                    loss_dict[key] = metrics_dict[key]
-
-            total_losses_reduced = sum(loss for loss in loss_dict.values())
-
-            self.storage.put_scalar("total_loss", total_losses_reduced)
-            if len(metrics_dict) > 1:
-                self.storage.put_scalars(**metrics_dict)
 
 
 # Adaptive Teacher Trainer
@@ -297,22 +64,22 @@ class ATeacherTrainer(DefaultTrainer):
 
         # create an teacher model
         s1_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg, backbone_output_shape=model.backbone.output_shape(),
-                              vis_period=0).to(model.device)
+                              vis_period=0).to('cuda')
         s2_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg, backbone_output_shape=model.backbone.output_shape(),
-                              vis_period=0).to(model.device)
+                              vis_period=0).to('cuda')
 
 
         # For training, wrap with DDP. But don't need this for inference.
         if comm.get_world_size() > 1:
+            if comm.get_world_size()  != 4:
+                print("comm.get_world_size()    ", comm.get_world_size() )
+            print(" comm.get_local_rank()   ", comm.get_local_rank())
             model = DistributedDataParallel(
-                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True
-            )
+                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False)
             s1_head = DistributedDataParallel(
-                s1_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True
-            )
+                s1_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False)
             s2_head = DistributedDataParallel(
-                s2_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True
-            )
+                s2_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False)
         self.s1_head = s1_head
         self.s2_head = s2_head
         ensemmbl_ts_model = EnsembleTSModel(model, self.s1_head, self.s2_head)
@@ -360,6 +127,8 @@ class ATeacherTrainer(DefaultTrainer):
             # machines may not have access to the checkpoint file
             if TORCH_VERSION >= (1, 7):
                 self.model._sync_params_and_buffers()
+                self.s1_head._sync_params_and_buffers()
+                self.s2_head._sync_params_and_buffers()
             self.start_iter = comm.all_gather(self.start_iter)[0]
 
     @classmethod
