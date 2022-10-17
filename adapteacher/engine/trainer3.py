@@ -523,7 +523,7 @@ class ATeacherTrainer(DefaultTrainer):
         # burn-in stage (supervised training with labeled data)
         if self.iter < self.cfg.SEMISUPNET.BURN_UP_STEP:
 
-            record_dict, _, _, _ = self.model.modelTeacher(
+            record_dict, _, _, _ = self.model('teacher',
                 label_data_k, branch="supervised")
 
             # weight losses
@@ -561,7 +561,7 @@ class ATeacherTrainer(DefaultTrainer):
                     proposals_rpn_unsup_k,
                     proposals_roih_unsup_k,
                     _,
-                ) = self.model.modelTeacher(unlabel_data_k, branch="unsup_data_weak")
+                ) = self.model('teacher', unlabel_data_k, branch="unsup_data_weak")
 
             ######################## For probe #################################
             # import pdb; pdb. set_trace()
@@ -602,18 +602,18 @@ class ATeacherTrainer(DefaultTrainer):
 
             all_label_data = label_data_k
             # 4.0 get features for labeled data
-            features_s1, images, gt_instances  = self.model.modelTeacher(all_label_data, branch='backbone')
+            features_s1, images, gt_instances  = self.model('teacher', all_label_data, branch='backbone')
             # 4. input both strongly and weakly augmented labeled data into student model
 
-            record_all_label_data, _, _, _ = self.model.s1_head(
+            record_all_label_data, _, _, _ = self.model('s1head',
                 features_s1, images, gt_instances, branch="supervised"
             )
             record_dict.update(record_all_label_data)
 
             # 5. input strongly augmented unlabeled data into model
             # 5.0 get features for labeled data
-            features_s2, images, gt_instances = self.model.modelTeacher(unlabel_data_k, branch='backbone')
-            record_all_unlabel_data, _, _, _ = self.model.s2_head(
+            features_s2, images, gt_instances = self.model('teacher', unlabel_data_k, branch='backbone')
+            record_all_unlabel_data, _, _, _ = self.model('s2head',
                 features_s2, images, gt_instances, branch="supervised_target"
             )
             new_record_all_unlabel_data = {}
@@ -635,7 +635,7 @@ class ATeacherTrainer(DefaultTrainer):
 
             all_domain_data = label_data_k
             # all_domain_data = label_data_k + unlabel_data_k
-            record_all_domain_data, _, _, _ = self.model.modelTeacher(all_domain_data, branch="domain")
+            record_all_domain_data, _, _, _ = self.model('teacher', all_domain_data, branch="domain")
             record_dict.update(record_all_domain_data)
 
             # weight losses
@@ -710,26 +710,31 @@ class ATeacherTrainer(DefaultTrainer):
 
     @torch.no_grad()
     def _update_teacher_model(self, keep_rate=0.9996):
-        if comm.get_world_size() > 1:
-            head_s1_rpn_dict = {
-                key[7:]: value for key, value in self.model.s1_head.proposal_generator.state_dict().items()
-            }
 
-            head_s1_roi_dict = {
-                key[7:]: value for key, value in self.model.s1_head.roi_heads.state_dict().items()
-            }
+        if comm.get_world_size() > 1:
+            head_s1_rpn_dict = self.model.module.s1_head.proposal_generator.state_dict()
+            head_s1_roi_dict = self.model.module.s1_head.roi_heads.state_dict()
+        #     head_s1_rpn_dict = {
+        #         key[7:]: value for key, value in self.model.module.s1_head.proposal_generator.state_dict().items()
+        #     }
+        #
+        #     head_s1_roi_dict = {
+        #         key[7:]: value for key, value in self.model.s1_head.roi_heads.state_dict().items()
+        #     }
         else:
             head_s1_rpn_dict = self.model.s1_head.proposal_generator.state_dict()
             head_s1_roi_dict = self.model.s1_head.roi_heads.state_dict()
 
 
         if comm.get_world_size() > 1:
-            head_s2_rpn_dict = {
-                key[7:]: value for key, value in self.model.s2_head.proposal_generator.state_dict().items()
-            }
-            head_s2_roi_dict = {
-                key[7:]: value for key, value in self.model.s2_head.roi_heads.state_dict().items()
-            }
+            head_s2_rpn_dict = self.model.s2_head.proposal_generator.state_dict()
+            head_s2_roi_dict = self.model.s2_head.roi_heads.state_dict()
+            # head_s2_rpn_dict = {
+            #     key[7:]: value for key, value in self.model.s2_head.proposal_generator.state_dict().items()
+            # }
+            # head_s2_roi_dict = {
+            #     key[7:]: value for key, value in self.model.s2_head.roi_heads.state_dict().items()
+            # }
         else:
             head_s2_rpn_dict = self.model.s2_head.proposal_generator.state_dict()
             head_s2_roi_dict = self.model.s2_head.roi_heads.state_dict()
@@ -738,13 +743,15 @@ class ATeacherTrainer(DefaultTrainer):
         for key, value in self.model_teacher.proposal_generator.state_dict().items():
             if key in head_s1_rpn_dict.keys() and key in head_s2_rpn_dict.keys():
                 new_teacher_dict[key] = (
-                        (head_s1_rpn_dict[key] * 0.5 + head_s2_rpn_dict[key] * 0.5 )*
+                        (head_s1_rpn_dict[key] * 0.5 + head_s2_rpn_dict[key] * 0.5 ) *
                         (1 - keep_rate) + value * keep_rate
                 )
             else:
                 raise Exception("{} is not found in student model".format(key))
-
-        self.model_teacher.proposal_generator.load_state_dict(new_teacher_dict)
+        if comm.get_world_size() > 1:
+            self.model.model_teacher.proposal_generator.load_state_dict(new_teacher_dict)
+        else:
+            self.model_teacher.proposal_generator.load_state_dict(new_teacher_dict)
 
         new_teacher_dict = OrderedDict()
         for key, value in self.model_teacher.roi_heads.state_dict().items():
