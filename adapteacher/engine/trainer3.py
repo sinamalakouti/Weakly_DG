@@ -740,9 +740,7 @@ class ATeacherTrainer(DefaultTrainer):
         else:
             head_s2_rpn_dict = self.s2_head.proposal_generator.state_dict()
             head_s2_roi_dict = self.s2_head.roi_heads.state_dict()
-        print("hereeeeee" * 10)
-        print(head_s1_roi_dict.keys())
-        print(head_s2_roi_dict.keys())
+        
         new_teacher_dict = OrderedDict()
         for key, value in self.model.module.proposal_generator.state_dict().items():
             if key in head_s1_rpn_dict.keys() and key in head_s2_rpn_dict.keys():
