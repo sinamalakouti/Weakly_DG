@@ -665,7 +665,7 @@ class ATeacherTrainer(DefaultTrainer):
                         # import pdb
                         # pdb.set_trace()
                         loss_dict[key] = record_dict[
-                                             key] * self.cfg.SEMISUPNET.DIS_LOSS_WEIGHT  # Need to modify defaults and yaml
+                                             key] * 0.01 # self.cfg.SEMISUPNET.DIS_LOSS_WEIGHT  # Need to modify defaults and yaml
                     else:  # supervised loss
                         loss_dict[key] = record_dict[key] * 1
 
@@ -740,7 +740,7 @@ class ATeacherTrainer(DefaultTrainer):
         else:
             head_s2_rpn_dict = self.s2_head.proposal_generator.state_dict()
             head_s2_roi_dict = self.s2_head.roi_heads.state_dict()
-        
+
         new_teacher_dict = OrderedDict()
         for key, value in self.model.module.proposal_generator.state_dict().items():
             if key in head_s1_rpn_dict.keys() and key in head_s2_rpn_dict.keys():
