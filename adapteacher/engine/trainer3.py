@@ -315,7 +315,7 @@ class ATeacherTrainer(DefaultTrainer):
             )
         self.s1_head = s1_head
         self.s2_head = s2_head
-        ensemmbl_ts_model = EnsembleTSModel(self.teacher_model, self.s1_head, self.s2_head)
+        ensemmbl_ts_model = EnsembleTSModel(model, self.s1_head, self.s2_head)
         optimizer = self.build_optimizer(cfg, ensemmbl_ts_model)
         TrainerBase.__init__(self)
         self._trainer = (AMPTrainer if cfg.SOLVER.AMP.ENABLED else SimpleTrainer)(
