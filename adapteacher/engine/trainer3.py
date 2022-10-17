@@ -63,10 +63,12 @@ class ATeacherTrainer(DefaultTrainer):
         model = self.build_model(cfg)
 
         # create an teacher model
-        s1_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg, backbone_output_shape=model.backbone.output_shape(),
-                              vis_period=0).to('cuda')
-        s2_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg, backbone_output_shape=model.backbone.output_shape(),
-                              vis_period=0).to('cuda')
+        s1_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg,
+                              backbone_output_shape=model.backbone.output_shape(),
+                              vis_period=0)#.to('cuda')
+        s2_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg,
+                              backbone_output_shape=model.backbone.output_shape(),
+                              vis_period=0)#.to('cuda')
 
 
         # For training, wrap with DDP. But don't need this for inference.
@@ -333,6 +335,11 @@ class ATeacherTrainer(DefaultTrainer):
             unlabel_data_k = self.remove_label(unlabel_data_k) # TODO: why? update only remove
 
             #  1. generate the pseudo-label using teacher model
+            for param in self.model.proposal_generator.parameters():
+                param.grad = None
+
+            for param in self.model.roi_heads.parameters():
+                param.grad = None
             with torch.no_grad():
                 (
                     _,
@@ -447,6 +454,7 @@ class ATeacherTrainer(DefaultTrainer):
         self.optimizer.zero_grad()
         losses.backward()
         self.optimizer.step()
+        print("here")
 
     def _write_metrics(self, metrics_dict: dict):
         metrics_dict = {
