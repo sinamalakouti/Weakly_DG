@@ -293,21 +293,29 @@ class ATeacherTrainer(DefaultTrainer):
         data_loader = self.build_train_loader(cfg)
 
         # create an student model
-        self.model_teacher = self.build_model(cfg)
+        model = self.build_model(cfg)
         # create an teacher model
-        self.s1_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg, backbone_output_shape=self.model_teacher.backbone.output_shape(),
-                              vis_period=0).to(self.model_teacher.device)
-        self.s2_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg, backbone_output_shape=self.model_teacher.backbone.output_shape(),
-                              vis_period=0).to(self.model_teacher.device)
-        model = EnsembleTSModel(self.model_teacher, self.s1_head, self.s2_head)
+        s1_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg, backbone_output_shape=model.backbone.output_shape(),
+                              vis_period=0).to(model.device)
+        s2_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg, backbone_output_shape=model.backbone.output_shape(),
+                              vis_period=0).to(model.device)
 
-        optimizer = self.build_optimizer(cfg, model)
+
         # For training, wrap with DDP. But don't need this for inference.
         if comm.get_world_size() > 1:
             model = DistributedDataParallel(
-                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False
+                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True
             )
-
+            s1_head = DistributedDataParallel(
+                s1_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True
+            )
+            s2_head = DistributedDataParallel(
+                s2_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True
+            )
+        self.s1_head = s1_head
+        self.s2_head = s2_head
+        ensemmbl_ts_model = EnsembleTSModel(model, self.s1_head, self.s2_head)
+        optimizer = self.build_optimizer(cfg, ensemmbl_ts_model)
         TrainerBase.__init__(self)
         self._trainer = (AMPTrainer if cfg.SOLVER.AMP.ENABLED else SimpleTrainer)(
             model, data_loader, optimizer
@@ -523,7 +531,7 @@ class ATeacherTrainer(DefaultTrainer):
         # burn-in stage (supervised training with labeled data)
         if self.iter < self.cfg.SEMISUPNET.BURN_UP_STEP:
 
-            record_dict, _, _, _ = self.model('teacher',
+            record_dict, _, _, _ = self.model(
                 label_data_k, branch="supervised")
 
             # weight losses
@@ -561,7 +569,7 @@ class ATeacherTrainer(DefaultTrainer):
                     proposals_rpn_unsup_k,
                     proposals_roih_unsup_k,
                     _,
-                ) = self.model('teacher', unlabel_data_k, branch="unsup_data_weak")
+                ) = self.model(unlabel_data_k, branch="unsup_data_weak")
 
             ######################## For probe #################################
             # import pdb; pdb. set_trace()
@@ -602,18 +610,18 @@ class ATeacherTrainer(DefaultTrainer):
 
             all_label_data = label_data_k
             # 4.0 get features for labeled data
-            features_s1, images, gt_instances  = self.model('teacher', all_label_data, branch='backbone')
+            features_s1, images, gt_instances  = self.model(all_label_data, branch='backbone')
             # 4. input both strongly and weakly augmented labeled data into student model
 
-            record_all_label_data, _, _, _ = self.model('s1head',
+            record_all_label_data, _, _, _ = self.s1_head(
                 features_s1, images, gt_instances, branch="supervised"
             )
             record_dict.update(record_all_label_data)
 
             # 5. input strongly augmented unlabeled data into model
             # 5.0 get features for labeled data
-            features_s2, images, gt_instances = self.model('teacher', unlabel_data_k, branch='backbone')
-            record_all_unlabel_data, _, _, _ = self.model('s2head',
+            features_s2, images, gt_instances = self.model( unlabel_data_k, branch='backbone')
+            record_all_unlabel_data, _, _, _ = self.s2_head(
                 features_s2, images, gt_instances, branch="supervised_target"
             )
             new_record_all_unlabel_data = {}
@@ -635,7 +643,7 @@ class ATeacherTrainer(DefaultTrainer):
 
             all_domain_data = label_data_k
             # all_domain_data = label_data_k + unlabel_data_k
-            record_all_domain_data, _, _, _ = self.model('teacher', all_domain_data, branch="domain")
+            record_all_domain_data, _, _, _ = self.model(all_domain_data, branch="domain")
             record_dict.update(record_all_domain_data)
 
             # weight losses
