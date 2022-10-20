@@ -8,8 +8,8 @@ from detectron2.engine import default_argument_parser, default_setup, launch
 
 from adapteacher import add_ateacher_config
 # from adapteacher.engine.trainer import ATeacherTrainer, BaselineTrainer
-from adapteacher.engine.trainer import  BaselineTrainer
-from adapteacher.engine.trainer3 import ATeacherTrainer
+# from adapteacher.engine.trainer import  BaselineTrainer
+from adapteacher.engine.trainer2 import ATeacherTrainer
 # hacky way to register
 from adapteacher.modeling.meta_arch.rcnn import DGobjGeneralizedRCNN  #TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
 from adapteacher.modeling.meta_arch.vgg import build_vgg_backbone  # noqa

@@ -21,7 +21,7 @@ from detectron2.data.build import (
     get_detection_dataset_dicts,
     build_batch_data_loader,
 )
-from adapteacher.data.common import (
+from adapteacher.data.common2 import (
     AspectRatioGroupedSemiSupDatasetTwoCrop,
 )
 

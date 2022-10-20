@@ -23,7 +23,7 @@ from detectron2.structures.instances import Instances
 from detectron2.utils.env import TORCH_VERSION
 from detectron2.data import MetadataCatalog
 
-from adapteacher.data.build import (
+from adapteacher.data.build2 import (
     build_detection_semisup_train_loader,
     build_detection_test_loader,
     build_detection_semisup_train_loader_two_crops,
@@ -37,6 +37,8 @@ from adapteacher.evaluation import PascalVOCDetectionEvaluator, COCOEvaluator
 
 from .probe import OpenMatchTrainerProbe
 import copy
+
+from ..modeling.meta_arch.custom_head import Custom_head
 
 
 # Supervised-only Trainer
@@ -288,29 +290,39 @@ class ATeacherTrainer(DefaultTrainer):
 
         # create an student model
         model = self.build_model(cfg)
-        optimizer = self.build_optimizer(cfg, model)
-        self.model_student = model
+
         # create an teacher model
-        model_teacher = self.build_model(cfg)
-        self.model_teacher = model_teacher
+        s1_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg,
+                              backbone_output_shape=model.backbone.output_shape(),
+                              vis_period=0).to('cuda')
+        s2_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg,
+                              backbone_output_shape=model.backbone.output_shape(),
+                              vis_period=0).to('cuda')
+
 
         # For training, wrap with DDP. But don't need this for inference.
         if comm.get_world_size() > 1:
+            if comm.get_world_size() != 4:
+                print("comm.get_world_size()    ", comm.get_world_size())
+            print(" comm.get_local_rank()   ", comm.get_local_rank())
             model = DistributedDataParallel(
-                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False
-            )
-
+                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
+            s1_head = DistributedDataParallel(
+                s1_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
+            s2_head = DistributedDataParallel(
+                s2_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
+        self.s1_head = s1_head
+        self.s2_head = s2_head
+        ensemmbl_ts_model = EnsembleTSModel(model, self.s1_head, self.s2_head)
+        optimizer = self.build_optimizer(cfg, ensemmbl_ts_model)
         TrainerBase.__init__(self)
         self._trainer = (AMPTrainer if cfg.SOLVER.AMP.ENABLED else SimpleTrainer)(
             model, data_loader, optimizer
         )
         self.scheduler = self.build_lr_scheduler(cfg, optimizer)
 
-        # Ensemble teacher and student model is for model saving and loading
-        ensem_ts_model = EnsembleTSModel(model_teacher, model)
-
         self.checkpointer = DetectionTSCheckpointer(
-            ensem_ts_model,
+            model,
             cfg.OUTPUT_DIR,
             optimizer=optimizer,
             scheduler=self.scheduler,
@@ -320,7 +332,8 @@ class ATeacherTrainer(DefaultTrainer):
         self.cfg = cfg
 
         self.probe = OpenMatchTrainerProbe(cfg)
-        self.register_hooks(self.build_hooks()) 
+        self.register_hooks(self.build_hooks())
+
 
     def resume_or_load(self, resume=True):
         """
@@ -507,10 +520,8 @@ class ATeacherTrainer(DefaultTrainer):
         # burn-in stage (supervised training with labeled data)
         if self.iter < self.cfg.SEMISUPNET.BURN_UP_STEP:
 
-            # input both strong and weak supervised data into model
-            label_data_q.extend(label_data_k)
             record_dict, _, _, _ = self.model(
-                label_data_q, branch="supervised")
+                label_data_k, branch="supervised")
 
             # weight losses
             loss_dict = {}
@@ -521,12 +532,11 @@ class ATeacherTrainer(DefaultTrainer):
 
         else:
             if self.iter == self.cfg.SEMISUPNET.BURN_UP_STEP:
-                # update copy the the whole model
-                self._update_teacher_model(keep_rate=0.00)
-                # self.model.build_discriminator()
-
+                # update copy the  whole model
+                # self._update_teacher_model(keep_rate=0.00) #TODO: we need to update how ot update the teacher_model ( only heads )
+                self._init_student_heads()
             elif (
-                self.iter - self.cfg.SEMISUPNET.BURN_UP_STEP
+                    self.iter - self.cfg.SEMISUPNET.BURN_UP_STEP
             ) % self.cfg.SEMISUPNET.TEACHER_UPDATE_ITER == 0:
                 self._update_teacher_model(
                     keep_rate=self.cfg.SEMISUPNET.EMA_KEEP_RATE)
@@ -534,29 +544,36 @@ class ATeacherTrainer(DefaultTrainer):
             record_dict = {}
 
             ######################## For probe #################################
-            # import pdb; pdb. set_trace() 
+            # import pdb; pdb. set_trace()
             gt_unlabel_k = self.get_label(unlabel_data_k)
             # gt_unlabel_q = self.get_label_test(unlabel_data_q)
-            
+
 
             #  0. remove unlabeled data labels
             unlabel_data_q = self.remove_label(unlabel_data_q)
             unlabel_data_k = self.remove_label(unlabel_data_k)
 
             #  1. generate the pseudo-label using teacher model
+
+            for param in self.model.proposal_generator.parameters():
+                param.grad = None
+
+            for param in self.model.roi_heads.parameters():
+                param.grad = None
+
             with torch.no_grad():
                 (
                     _,
                     proposals_rpn_unsup_k,
                     proposals_roih_unsup_k,
                     _,
-                ) = self.model_teacher(unlabel_data_k, branch="unsup_data_weak")
+                ) = self.model(unlabel_data_k, branch="unsup_data_weak")
 
             ######################## For probe #################################
-            # import pdb; pdb. set_trace() 
+            # import pdb; pdb. set_trace()
 
             # probe_metrics = ['compute_fp_gtoutlier', 'compute_num_box']
-            # probe_metrics = ['compute_num_box']  
+            # probe_metrics = ['compute_num_box']
             # analysis_pred, _ = self.probe.compute_num_box(gt_unlabel_k,proposals_roih_unsup_k,'pred')
             # record_dict.update(analysis_pred)
             ######################## For probe END #################################
@@ -595,15 +612,19 @@ class ATeacherTrainer(DefaultTrainer):
             all_label_data = label_data_q + label_data_k
             all_unlabel_data = unlabel_data_q
 
+            features_s1, images, gt_instances = self.model(all_label_data, branch='backbone')
+
             # 4. input both strongly and weakly augmented labeled data into student model
-            record_all_label_data, _, _, _ = self.model(
-                all_label_data, branch="supervised"
+            record_all_label_data, _, _, _ = self.s1_head(
+                features_s1, images, gt_instances, branch="supervised"
             )
             record_dict.update(record_all_label_data)
 
             # 5. input strongly augmented unlabeled data into model
-            record_all_unlabel_data, _, _, _ = self.model(
-                all_unlabel_data, branch="supervised_target"
+
+            features_s2, images, gt_instances = self.model(all_unlabel_data, branch='backbone')
+            record_all_unlabel_data, _, _, _ = self.s2_head(
+                features_s2, images, gt_instances, branch="supervised_target"
             )
             new_record_all_unlabel_data = {}
             for key in record_all_unlabel_data.keys():
@@ -637,15 +658,16 @@ class ATeacherTrainer(DefaultTrainer):
                         loss_dict[key] = record_dict[key] * 0
                     elif key[-6:] == "pseudo":  # unsupervised loss
                         loss_dict[key] = (
-                            record_dict[key] *
-                            self.cfg.SEMISUPNET.UNSUP_LOSS_WEIGHT
+                                record_dict[key] *
+                                self.cfg.SEMISUPNET.UNSUP_LOSS_WEIGHT
                         )
                     elif (
-                        key == "loss_D_img_s" or key == "loss_D_img_t"
+                            key == "loss_D_img_s" or key == "loss_D_img_t"
                     ):  # set weight for discriminator
                         # import pdb
                         # pdb.set_trace()
-                        loss_dict[key] = record_dict[key] * self.cfg.SEMISUPNET.DIS_LOSS_WEIGHT #Need to modify defaults and yaml
+                        loss_dict[key] = record_dict[
+                                             key] * 0.01 # self.cfg.SEMISUPNET.DIS_LOSS_WEIGHT  # Need to modify defaults and yaml
                     else:  # supervised loss
                         loss_dict[key] = record_dict[key] * 1
 
@@ -658,6 +680,7 @@ class ATeacherTrainer(DefaultTrainer):
         self.optimizer.zero_grad()
         losses.backward()
         self.optimizer.step()
+        print("here")
 
     def _write_metrics(self, metrics_dict: dict):
         metrics_dict = {
@@ -697,29 +720,75 @@ class ATeacherTrainer(DefaultTrainer):
             if len(metrics_dict) > 1:
                 self.storage.put_scalars(**metrics_dict)
 
+
     @torch.no_grad()
     def _update_teacher_model(self, keep_rate=0.9996):
+
         if comm.get_world_size() > 1:
-            student_model_dict = {
-                key[7:]: value for key, value in self.model.state_dict().items()
-            }
+            # head_s1_dict = {
+            #     key[7:]: value for key, value in self.s1_head.state_dict().items()
+            # }
+            head_s1_rpn_dict = self.s1_head.module.proposal_generator.state_dict()
+            head_s1_roi_dict = self.s1_head.module.roi_heads.state_dict()
+
         else:
-            student_model_dict = self.model.state_dict()
+            # head_s1_dict = self.s1_head.state_dict()
+            head_s1_rpn_dict = self.s1_head.proposal_generator.state_dict()
+            head_s1_roi_dict = self.s1_head.roi_heads.state_dict()
+
+
+        if comm.get_world_size() > 1:
+
+            head_s2_rpn_dict = self.s2_head.module.proposal_generator.state_dict()
+            head_s2_roi_dict = self.s2_head.module.roi_heads.state_dict()
+        else:
+            head_s2_rpn_dict = self.s2_head.proposal_generator.state_dict()
+            head_s2_roi_dict = self.s2_head.roi_heads.state_dict()
 
         new_teacher_dict = OrderedDict()
-        for key, value in self.model_teacher.state_dict().items():
-            if key in student_model_dict.keys():
+        for key, value in self.model.module.proposal_generator.state_dict().items():
+            if key in head_s1_rpn_dict.keys() and key in head_s2_rpn_dict.keys():
                 new_teacher_dict[key] = (
-                    student_model_dict[key] *
-                    (1 - keep_rate) + value * keep_rate
+                        (head_s1_rpn_dict[key] * 0.5 + head_s2_rpn_dict[key] * 0.5 ) *
+                        (1 - keep_rate) + value * keep_rate
+                )
+            else:
+                raise Exception("{} is not found in student model".format(key))
+        # if comm.get_world_size() > 1:
+        #     self.model.proposal_generator.load_state_dict(new_teacher_dict)
+        # else:
+        self.model.module.proposal_generator.load_state_dict(new_teacher_dict)
+
+        new_teacher_dict = OrderedDict()
+        for key, value in self.model.module.roi_heads.state_dict().items():
+            if key in head_s1_roi_dict.keys() and key in head_s2_roi_dict.keys():
+                new_teacher_dict[key] = (
+                        (head_s1_roi_dict[key] * 0.5 + head_s2_roi_dict[key] * 0.5) *
+                        (1 - keep_rate) + value * keep_rate
                 )
             else:
                 raise Exception("{} is not found in student model".format(key))
 
-        self.model_teacher.load_state_dict(new_teacher_dict)
+        self.model.module.roi_heads.load_state_dict(new_teacher_dict)
 
     @torch.no_grad()
+    def _init_student_heads(self):
+        if comm.get_world_size() > 1:
+
+            self.s1_head.module.proposal_generator.load_state_dict(self.model.module.proposal_generator.state_dict())
+            self.s2_head.module.proposal_generator.load_state_dict(self.model.module.proposal_generator.state_dict())
+
+            self.s1_head.module.roi_heads.load_state_dict(self.model.module.roi_heads.state_dict())
+            self.s2_head.module.roi_heads.load_state_dict(self.model.module.roi_heads.state_dict())
+        else:
+            self.s1_head.proposal_generator.load_state_dict(self.model.proposal_generator.state_dict())
+            self.s2_head.proposal_generator.load_state_dict(self.model.proposal_generator.state_dict())
+
+            self.s1_head.roi_heads.load_state_dict(self.model.roi_heads.state_dict())
+            self.s2_head.roi_heads.load_state_dict(self.model.roi_heads.state_dict())
+    @torch.no_grad()
     def _copy_main_model(self):
+        print("Copyyyy " * 10)
         # initialize all parameters
         if comm.get_world_size() > 1:
             rename_model_dict = {

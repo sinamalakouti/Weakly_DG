@@ -8,7 +8,7 @@ import torch
 import detectron2.data.detection_utils as utils
 import detectron2.data.transforms as T
 from detectron2.data.dataset_mapper import DatasetMapper
-
+from adapteacher.data.detection_utils import build_strong_augmentation
 
 
 class DatasetMapperDG(DatasetMapper):
