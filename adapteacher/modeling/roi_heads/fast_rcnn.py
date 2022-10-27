@@ -226,13 +226,6 @@ class WSDDNOutputs(object):
         print("*"*50)
         print("Binary Cross Entropy loss")
 
-        print("*" * 50)
-        print(self.predict_probs_img())
-        print("-"*20)
-        print(self.gt_classes_img_oh)
-        print("-" * 20)
-        print(self.gt_classes_img_oh.size(0))
-        print('+'*25)
         assert self.predict_probs_img().shape == self.gt_classes_img_oh.shape, " {} != {}".format( self.predict_probs_img().shape, self.gt_classes_img_oh.shape)
         print(torch.isnan(self.predict_probs_img()).sum().item())
         print(torch.isnan(self.gt_classes_img_oh).sum().item())
@@ -413,7 +406,17 @@ class WSDDNOutputLayers(nn.Module):
         """
         if x.dim() > 2:
             x = torch.flatten(x, start_dim=1)
-
+        print("*"*50)
+        print("fast_rcnn")
+        print("*" * 50)
+        print("self.cls_score(x)")
+        t1 = self.cls_score(x)
+        print(t1)
+        print(torch.isnan(t1).sum().item())
+        print("self.bbox_pred(x)")
+        t2 = self.bbox_pred(x)
+        print(t2)
+        print(torch.isnan(t2).sum().item())
         if proposals is None:
             scores = F.softmax(self.cls_score(x), dim=1) * F.softmax(self.bbox_pred(x), dim=0)
         else:
