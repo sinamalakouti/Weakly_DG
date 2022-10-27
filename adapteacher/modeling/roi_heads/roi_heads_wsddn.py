@@ -186,7 +186,7 @@ class WSDDNROIHeads(ROIHeads):
             return proposals, losses
         else:
 
-            pred_instances, predictions = self._forward_box_weak(ffeatures, proposals, compute_loss,
+            pred_instances, predictions = self._forward_box_weak(features, proposals, compute_loss,
                                                             compute_val_loss, branch)
 
             return pred_instances, predictions
