@@ -222,9 +222,25 @@ class WSDDNROIHeads(ROIHeads):
         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
 
         objectness_logits = torch.cat([x.objectness_logits + 1 for x in proposals], dim=0)
+
+        print("*" * 50)
+        print("roi_wsddn")
+        print("*" * 50)
+        print("print(box_features) 1111111")
+        print(box_features)
+        print(torch.isnan(box_features).sum().item())
+
         box_features = box_features * objectness_logits.view(-1, 1, 1, 1)
 
         # torch.cuda.empty_cache()
+        print("*" * 50)
+        print("roi_wsddn")
+        print("*" * 50)
+        print("print(box_features) 22222")
+        print(box_features)
+        print(torch.isnan(box_features).sum().item())
+
+
 
         box_features = self.box_head(box_features)
 

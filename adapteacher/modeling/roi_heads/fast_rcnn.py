@@ -403,12 +403,6 @@ class WSDDNOutputLayers(nn.Module):
         """
         if x.dim() > 2:
             x = torch.flatten(x, start_dim=1)
-        print("*"*50)
-        print("fast_rcnn")
-        print("*" * 50)
-        print("print(x)")
-        print(x)
-        print(torch.isnan(x).sum().item())
         # print("self.cls_score(x)")
         # t1 = self.cls_score(x)
         # print(t1)
