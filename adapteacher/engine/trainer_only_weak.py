@@ -682,7 +682,7 @@ class ATeacherTrainer(DefaultTrainer):
                                 record_dict[key] *
                                 self.cfg.SEMISUPNET.UNSUP_LOSS_WEIGHT
                         )
-                    elif "mil" in key:
+                    elif "record_dict" in key:
                         loss_dict[key] = (
                                 record_dict[key] *
                                 self.cfg.SEMISUPNET.UNSUP_LOSS_WEIGHT #TODO

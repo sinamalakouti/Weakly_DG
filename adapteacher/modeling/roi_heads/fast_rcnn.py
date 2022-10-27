@@ -125,7 +125,7 @@ class WSDDNOutputs(object):
             proposals,
             smooth_l1_beta=0.0,
             box_reg_loss_type="smooth_l1",
-            mean_loss=False,
+            mean_loss=True,
             gt_classes_img_oh=None,
     ):
         """
@@ -223,12 +223,9 @@ class WSDDNOutputs(object):
             scalar Tensor
         """
         self._log_accuracy()
-        print("*"*50)
-        print("Binary Cross Entropy loss")
 
         assert self.predict_probs_img().shape == self.gt_classes_img_oh.shape, " {} != {}".format( self.predict_probs_img().shape, self.gt_classes_img_oh.shape)
-        print(torch.isnan(self.predict_probs_img()).sum().item())
-        print(torch.isnan(self.gt_classes_img_oh).sum().item())
+
         reduction = "mean" if self.mean_loss else "sum"
         return F.binary_cross_entropy(
             self.predict_probs_img(), self.gt_classes_img_oh, reduction=reduction
@@ -409,14 +406,18 @@ class WSDDNOutputLayers(nn.Module):
         print("*"*50)
         print("fast_rcnn")
         print("*" * 50)
-        print("self.cls_score(x)")
-        t1 = self.cls_score(x)
-        print(t1)
-        print(torch.isnan(t1).sum().item())
-        print("self.bbox_pred(x)")
-        t2 = self.bbox_pred(x)
-        print(t2)
-        print(torch.isnan(t2).sum().item())
+        print("print(x)")
+        print(x)
+        print(torch.isnan(x).sum().item())
+        # print("self.cls_score(x)")
+        # t1 = self.cls_score(x)
+        # print(t1)
+        # print(torch.isnan(t1).sum().item())
+        # print("self.bbox_pred(x)")
+        # t2 = self.bbox_pred(x)
+        # print(t2)
+        # print(torch.isnan(t2).sum().item())
+
         if proposals is None:
             scores = F.softmax(self.cls_score(x), dim=1) * F.softmax(self.bbox_pred(x), dim=0)
         else:
