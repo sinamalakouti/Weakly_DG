@@ -170,7 +170,7 @@ class WSDDNOutputs(object):
 
             # The following fields should exist only when training.
             if proposals[0].has("gt_boxes"):
-                # self.gt_boxes = box_type.cat([p.gt_boxes for p in proposals])
+                self.gt_boxes = box_type.cat([p.gt_boxes for p in proposals])
                 assert proposals[0].has("gt_classes")
                 self.gt_classes = cat([p.gt_classes for p in proposals], dim=0)
         else:

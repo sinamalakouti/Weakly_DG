@@ -563,7 +563,7 @@ class ATeacherTrainer(DefaultTrainer):
 
             #  0. convert to weakly labeled data
             unlabel_data_q = self.remove_label(unlabel_data_q)
-            unlabel_data_k = self.convert_to_weak_label(unlabel_data_k)
+            # unlabel_ data_k = self.convert_to_weak_label(unlabel_data_k)
 
             #  1. generate the pseudo-label using teacher model
 

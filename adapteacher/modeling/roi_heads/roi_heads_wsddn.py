@@ -165,6 +165,14 @@ class WSDDNROIHeads(ROIHeads):
         if self.training and compute_loss:
             assert targets
             proposals = self.label_and_sample_proposals(proposals, targets)
+            # sampled_proposals = []
+            # for proposals_per_image in proposals:
+            #     sampled_idxs = torch.randperm(
+            #         len(proposals_per_image), device=proposals_per_image.proposal_boxes.device
+            #     )[:self.batch_size_per_image]
+            #     sampled_proposals.append(proposals_per_image[sampled_idxs])
+            # proposals = sampled_proposals
+
 
         elif compute_val_loss:  # apply if val loss
             assert targets
