@@ -309,9 +309,9 @@ class ATeacherTrainer(DefaultTrainer):
             model = DistributedDataParallel(
                 model, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
             s1_head = DistributedDataParallel(
-                s1_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=False)
+                s1_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
             s2_head = DistributedDataParallel(
-                s2_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=False)
+                s2_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
         self.s1_head = s1_head
         self.s2_head = s2_head
         ensemmbl_ts_model = EnsembleTSModel(model, self.s1_head, self.s2_head)
