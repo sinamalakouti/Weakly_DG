@@ -19,6 +19,7 @@ import numpy as np
 from detectron2.modeling.poolers import ROIPooler
 from torch.nn import functional as F
 
+
 @torch.no_grad()
 def get_image_level_gt(targets, num_classes):
     """
@@ -40,17 +41,16 @@ def get_image_level_gt(targets, num_classes):
     return gt_classes_img, gt_classes_img_int, gt_classes_img_oh
 
 
-
 @ROI_HEADS_REGISTRY.register()
 class StandardROIHeadsPseudoLab(StandardROIHeads):
     @classmethod
     def _init_box_head(cls, cfg, input_shape):
         # fmt: off
-        in_features       = cfg.MODEL.ROI_HEADS.IN_FEATURES
+        in_features = cfg.MODEL.ROI_HEADS.IN_FEATURES
         pooler_resolution = cfg.MODEL.ROI_BOX_HEAD.POOLER_RESOLUTION
-        pooler_scales     = tuple(1.0 / input_shape[k].stride for k in in_features)
-        sampling_ratio    = cfg.MODEL.ROI_BOX_HEAD.POOLER_SAMPLING_RATIO
-        pooler_type       = cfg.MODEL.ROI_BOX_HEAD.POOLER_TYPE
+        pooler_scales = tuple(1.0 / input_shape[k].stride for k in in_features)
+        sampling_ratio = cfg.MODEL.ROI_BOX_HEAD.POOLER_SAMPLING_RATIO
+        pooler_type = cfg.MODEL.ROI_BOX_HEAD.POOLER_TYPE
         # fmt: on
 
         in_channels = [input_shape[f].channels for f in in_features]
@@ -84,15 +84,19 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
             "box_predictor": box_predictor,
         }
 
+    def build_region_head(self, inc, outc):
+        self.weak_enable = True
+        self.weah_head = torch.nn.Linear(inc, outc, bias=True)
+
     def forward(
-        self,
-        images: ImageList,
-        features: Dict[str, torch.Tensor],
-        proposals: List[Instances],
-        targets: Optional[List[Instances]] = None,
-        compute_loss=True,
-        branch="",
-        compute_val_loss=False,
+            self,
+            images: ImageList,
+            features: Dict[str, torch.Tensor],
+            proposals: List[Instances],
+            targets: Optional[List[Instances]] = None,
+            compute_loss=True,
+            branch="",
+            compute_val_loss=False,
     ) -> Tuple[List[Instances], Dict[str, torch.Tensor]]:
 
         del images
@@ -126,12 +130,12 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
             return pred_instances, predictions
 
     def _forward_box(
-        self,
-        features: Dict[str, torch.Tensor],
-        proposals: List[Instances],
-        compute_loss: bool = True,
-        compute_val_loss: bool = False,
-        branch: str = "",
+            self,
+            features: Dict[str, torch.Tensor],
+            proposals: List[Instances],
+            compute_loss: bool = True,
+            compute_val_loss: bool = False,
+            branch: str = "",
     ) -> Union[Dict[str, torch.Tensor], List[Instances]]:
         features = [features[f] for f in self.box_in_features]
         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
@@ -140,7 +144,7 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
         del box_features
 
         if (
-            self.training and compute_loss
+                self.training and compute_loss
         ) or compute_val_loss:  # apply if training loss or val loss
             losses = self.box_predictor.losses(predictions, proposals)
 
@@ -150,7 +154,7 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
                         predictions, proposals
                     )
                     for proposals_per_image, pred_boxes_per_image in zip(
-                        proposals, pred_boxes
+                            proposals, pred_boxes
                     ):
                         proposals_per_image.proposal_boxes = Boxes(pred_boxes_per_image)
             return losses, predictions
@@ -161,7 +165,7 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
 
     @torch.no_grad()
     def label_and_sample_proposals(
-        self, proposals: List[Instances], targets: List[Instances], branch: str = ""
+            self, proposals: List[Instances], targets: List[Instances], branch: str = ""
     ) -> List[Instances]:
         gt_boxes = [x.gt_boxes for x in targets]
         if self.proposal_append_gt:
@@ -188,7 +192,7 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
                 sampled_targets = matched_idxs[sampled_idxs]
                 for (trg_name, trg_value) in targets_per_image.get_fields().items():
                     if trg_name.startswith("gt_") and not proposals_per_image.has(
-                        trg_name
+                            trg_name
                     ):
                         proposals_per_image.set(trg_name, trg_value[sampled_targets])
             else:
@@ -211,8 +215,7 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
 
         return proposals_with_gt
 
-
-# #############
+    # #############
 
     def forward_weak(
             self,
@@ -230,7 +233,6 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
         self.gt_classes_img, self.gt_classes_img_int, self.gt_classes_img_oh = get_image_level_gt(
             targets, self.num_classes
         )
-        del targets
 
         # sampled_proposals = []
         # for proposals_per_image in proposals:
@@ -241,8 +243,8 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
         if self.training and compute_loss:  # apply if training loss
             assert targets
             proposals = self.label_and_sample_proposals(
-                        proposals, targets, branch=branch
-                    )
+                proposals, targets, branch=branch
+            )
         elif compute_val_loss:  # apply if val loss
             assert targets
             # 1000 --> 512
@@ -257,6 +259,7 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
             # losses, _ = self._forward_box(
             #     features, proposals, compute_loss, compute_val_loss, branch
             # )
+
             losses, _ = self._forward_box_weak(features, proposals, compute_loss, compute_val_loss, branch)
             return proposals, losses
         else:
@@ -265,13 +268,12 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
             )
             return pred_instances, predictions
 
-
     def _forward_box_weak(
             self, features: Dict[str, torch.Tensor],
             proposals: List[Instances],
             compute_loss: bool = True,
             compute_val_loss: bool = False,
-            branch = "",
+            branch: str = "",
     ) -> Union[Dict[str, torch.Tensor], List[Instances]]:
         """
         Forward logic of the box prediction branch. If `self.train_on_pred_boxes is True`,
@@ -290,23 +292,43 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
             In inference, a list of `Instances`, the predicted instances.
         """
 
+        # features = [features[f] for f in self.box_in_features]
+        #         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
+        #         box_features = self.box_head(box_features)
+        #         predictions = self.box_predictor(box_features, proposals)
+        #         del box_features
+        #         if (self.training and compute_loss) or compute_val_loss:
+        #             losses = self.box_predictor.losses(predictions, proposals)
+        #             # proposals is modified in-place below, so losses must be computed first.
+        #             if self.train_on_pred_boxes:
+        #                 with torch.no_grad():
+        #                     pred_boxes = self.box_predictor.predict_boxes_for_gt_classes(
+        #                         predictions, proposals
+        #                     )
+        #                     for proposals_per_image, pred_boxes_per_image in zip(proposals, pred_boxes):
+        #                         proposals_per_image.proposal_boxes = Boxes(pred_boxes_per_image)
+        #             return losses, predictions
+        #         else:
+        #             pred_instances, _ = self.box_predictor.inference(predictions, proposals)
+        #             return pred_instances, predictions
 
         features = [features[f] for f in self.box_in_features]
         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
         box_features = self.box_head(box_features)
-        cls_predictions, det_predictions = self.box_predictor(box_features)
-        del box_features
+        cls_predictions, _ = self.box_predictor(box_features)
 
 
-        if ( self.training and compute_loss) or compute_val_loss:
+        if (self.training and compute_loss) or compute_val_loss:
             num_proposal_per_image = [len(p) for p in proposals]
-        # TODO: better implementation to calculate loss using rest inputs with non-valid proposals
+            # TODO: better implementation to calculate loss using rest inputs with non-valid proposals
             if 0 in num_proposal_per_image:
                 return {"loss_mil": 0.0 * cls_predictions.sum()}
 
             # objectness_scores = torch.unsqueeze(torch.cat([p.objectness_logits for p in proposals]), dim=1)
 
             cls_scores = F.softmax(cls_predictions[:, :-1], dim=1)
+            det_logits = self.weah_head(box_features)
+            del box_features
             # max_cls_ids = torch.unsqueeze(torch.argmax(cls_predictions[:, :-1], dim=1), dim=1)
             # objectness_scores = torch.zeros_like(cls_scores).scatter_(
             #     dim=1, index=max_cls_ids, src=objectness_scores
@@ -317,7 +339,7 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
                     torch.sum(cls * F.softmax(det, dim=0), dim=0, keepdim=True)
                     for cls, det in zip(
                     cls_scores.split(num_proposal_per_image, dim=0),
-                    det_predictions.split(num_proposal_per_image, dim=0))
+                    det_logits.split(num_proposal_per_image, dim=0))
                 ],
                 dim=0,
             )
@@ -327,4 +349,24 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
                 self.gt_classes_img_oh,
                 reduction='mean'
             )
-        return {"loss_mil": img_cls_losses}
+            return {"loss_mil": img_cls_losses}, pred_img_cls_logits
+        else:
+            num_proposal_per_image = [len(p) for p in proposals]
+            cls_scores = F.softmax(cls_predictions[:, :-1], dim=1)
+            det_logits = self.weah_head(box_features)
+            # max_cls_ids = torch.unsqueeze(torch.argmax(cls_predictions[:, :-1], dim=1), dim=1)
+            # objectness_scores = torch.zeros_like(cls_scores).scatter_(
+            #     dim=1, index=max_cls_ids, src=objectness_scores
+            # )
+
+            pred_img_cls_logits = torch.cat(
+                [
+                    torch.sum(cls * F.softmax(det, dim=0), dim=0, keepdim=True)
+                    for cls, det in zip(
+                    cls_scores.split(num_proposal_per_image, dim=0),
+                    det_logits.split(num_proposal_per_image, dim=0))
+                ],
+                dim=0,
+            )
+
+            return pred_img_cls_logits, (cls_scores, det_logits)

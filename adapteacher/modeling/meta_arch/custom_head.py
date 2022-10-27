@@ -54,16 +54,15 @@ class Custom_head(nn.Module):
         self.weak_head = weak_head
         self.vis_period = vis_period
         self.proposal_generator = build_proposal_generator(cfg, backbone_output_shape)
-        if weak_head:
-            cfg.defrost()
-            cfg.MODEL.ROI_HEADS.NAME = 'WSDDNROIHeads'
-            cfg.freeze()
+
         self.roi_heads = build_roi_heads(cfg, backbone_output_shape)
-        self.weak_head = weak_head
+        if weak_head:
+            self.roi_heads.build_region_head(1024, 8)
 
     def forward(
             self, features, images, gt_instances, branch="supervised", given_proposals=None, val_mode=False
     ):
+
 
         if branch.startswith("supervised"):
 
@@ -120,7 +119,7 @@ class Custom_head(nn.Module):
 
             # roi_head lower branch  TODO: check how roi_head works
             _, detector_losses = self.roi_heads.forward_weak(
-                images,
+                # images,
                 features,
                 proposals_rpn,
                 compute_loss=True,

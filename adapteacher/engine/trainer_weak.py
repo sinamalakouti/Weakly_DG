@@ -561,17 +561,29 @@ class ATeacherTrainer(DefaultTrainer):
             gt_unlabel_k = self.get_label(unlabel_data_k)
             # gt_unlabel_q = self.get_label_test(unlabel_data_q)
 
+            features_s2_weak, images, gt_instances = self.model(unlabel_data_k, branch='backbone')
+            record_all_unlabel_data, _, _, _ = self.s2_head(
+                features_s2_weak, images, gt_instances, branch="mil"
+            )
+            new_record_all_unlabel_data = {}
+            for key in record_all_unlabel_data.keys():
+                new_record_all_unlabel_data[key + "_mil"] = record_all_unlabel_data[
+                    key
+                ]
+            record_dict.update(new_record_all_unlabel_data)
+
             #  0. convert to weakly labeled data
             unlabel_data_q = self.remove_label(unlabel_data_q)
             unlabel_data_k = self.remove_label(unlabel_data_k)
 
-            #  1. generate the pseudo-label using teacher model
 
-            # for param in self.model.module.proposal_generator.parameters():
-            #     param.grad = None
-            #
-            # for param in self.model.module.roi_heads.parameters():
-            #     param.grad = None
+            #  1. generate the pseudo-label using teacher model
+        
+            for param in self.model.module.proposal_generator.parameters():
+                param.grad = None
+
+            for param in self.model.module.roi_heads.parameters():
+                param.grad = None
 
             with torch.no_grad():
                 (
