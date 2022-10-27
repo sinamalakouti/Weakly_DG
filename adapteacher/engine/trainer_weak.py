@@ -646,7 +646,7 @@ class ATeacherTrainer(DefaultTrainer):
 
             features_s2, images, gt_instances = self.model(all_unlabel_data, branch='backbone')
             record_all_unlabel_data, _, _, _ = self.s2_head(
-                features_s2, images, gt_instances, branch="supervised_target    "
+                features_s2, images, gt_instances, branch="supervised_target"
             )
             new_record_all_unlabel_data = {}
             for key in record_all_unlabel_data.keys():
@@ -811,7 +811,7 @@ class ATeacherTrainer(DefaultTrainer):
             self.s1_head.module.roi_heads.load_state_dict(self.model.module.roi_heads.state_dict())
             # self.s2_head.module.roi_heads.load_state_dict(self.model.module.roi_heads.state_dict())
             for k, param in self.model.module.roi_heads.state_dict().items():
-                if self.model.roi_heads.module.state_dict()[k].shape == self.s2_head.module.roi_heads.state_dict()[k].shape:
+                if self.model.module.roi_heads.state_dict()[k].shape == self.s2_head.module.roi_heads.state_dict()[k].shape:
                     param = param.data
                     self.s2_head.module.roi_heads.state_dict()[k].copy_(param)
 
