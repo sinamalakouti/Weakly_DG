@@ -34,6 +34,7 @@ class Custom_head(nn.Module):
             cfg: None,
             backbone_output_shape: None,
             vis_period: int = 0,
+            weak_head: bool = False
 
     ):
         """
@@ -50,15 +51,19 @@ class Custom_head(nn.Module):
 
         self.proposal_generator = proposal_generator
         self.roi_heads = roi_heads
-
+        self.weak_head = weak_head
         self.vis_period = vis_period
         self.proposal_generator = build_proposal_generator(cfg, backbone_output_shape)
+        if weak_head:
+            cfg.defrost()
+            cfg.MODEL.ROI_HEADS.NAME = 'WSDDNROIHeads'
+            cfg.freeze()
         self.roi_heads = build_roi_heads(cfg, backbone_output_shape)
+        self.weak_head = weak_head
 
     def forward(
             self, features, images, gt_instances, branch="supervised", given_proposals=None, val_mode=False
     ):
-
 
         if branch.startswith("supervised"):
 
@@ -85,7 +90,7 @@ class Custom_head(nn.Module):
 
         elif branch.startswith("supervised_target"):
 
-            # Region proposal network  TODO: check how proposal_generator works? why images are used? Just for loss or what?
+            # Region proposal network
             proposals_rpn, proposal_losses = self.proposal_generator(
                 images, features, gt_instances
             )
@@ -105,7 +110,30 @@ class Custom_head(nn.Module):
             losses.update(proposal_losses)
             return losses, [], [], None
 
-        elif branch == "unsup_data_weak":  #TODO what is this for :)
+        elif branch.startswith("mil"):
+
+            # Region proposal network
+            with torch.no_grad():
+                proposals_rpn, _ = self.proposal_generator(
+                    images, features, gt_instances, compute_loss=False
+                )
+
+            # roi_head lower branch  TODO: check how roi_head works
+            _, detector_losses = self.roi_heads.forward_weak(
+                images,
+                features,
+                proposals_rpn,
+                compute_loss=True,
+                targets=gt_instances,
+                branch=branch,
+            )
+
+            losses = {}
+            losses.update(detector_losses)
+            # losses.update(proposal_losses)
+            return losses, [], [], None
+
+        elif branch == "unsup_data_weak":  # TODO what is this for :)
             """
             unsupervised weak branch: input image without any ground-truth label; output proposals of rpn and roi-head
             """

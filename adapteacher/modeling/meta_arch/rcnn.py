@@ -310,7 +310,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
                 images,
                 features_DI,
                 proposals_rpn,
- #               compute_loss=True,
+               compute_loss=True,
                 targets=gt_instances,
 #                branch=branch, #TODO check this shit
             )

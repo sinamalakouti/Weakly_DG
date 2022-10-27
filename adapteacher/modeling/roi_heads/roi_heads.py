@@ -17,6 +17,28 @@ from adapteacher.modeling.roi_heads.fast_rcnn import FastRCNNFocaltLossOutputLay
 
 import numpy as np
 from detectron2.modeling.poolers import ROIPooler
+from torch.nn import functional as F
+
+@torch.no_grad()
+def get_image_level_gt(targets, num_classes):
+    """
+    Convert instance-level annotations to image-level
+    """
+    if targets is None:
+        return None, None, None
+    gt_classes_img = [torch.unique(t.gt_classes, sorted=True) for t in targets]
+    gt_classes_img_int = [gt.to(torch.int64) for gt in gt_classes_img]
+    gt_classes_img_oh = torch.cat(
+        [
+            torch.zeros(
+                (1, num_classes), dtype=torch.float, device=gt_classes_img[0].device
+            ).scatter_(1, torch.unsqueeze(gt, dim=0), 1)
+            for gt in gt_classes_img_int
+        ],
+        dim=0,
+    )
+    return gt_classes_img, gt_classes_img_int, gt_classes_img_oh
+
 
 
 @ROI_HEADS_REGISTRY.register()
@@ -188,3 +210,121 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
         )
 
         return proposals_with_gt
+
+
+# #############
+
+    def forward_weak(
+            self,
+            features: Dict[str, torch.Tensor],
+            proposals: List[Instances],
+            targets: Optional[List[Instances]] = None,
+            branch: str = "",
+            compute_loss: bool = True,
+            compute_val_loss: bool = False,
+    ) -> Tuple[List[Instances], Dict[str, torch.Tensor]]:
+        """
+        See :class:`ROIHeads.forward`.
+        """
+        assert targets
+        self.gt_classes_img, self.gt_classes_img_int, self.gt_classes_img_oh = get_image_level_gt(
+            targets, self.num_classes
+        )
+        del targets
+
+        # sampled_proposals = []
+        # for proposals_per_image in proposals:
+        #     sampled_idxs = torch.randperm(
+        #         len(proposals_per_image), device=proposals_per_image.proposal_boxes.device
+        #     )[:self.batch_size_per_image]
+        #     sampled_proposals.append(proposals_per_image[sampled_idxs])
+        if self.training and compute_loss:  # apply if training loss
+            assert targets
+            proposals = self.label_and_sample_proposals(
+                        proposals, targets, branch=branch
+                    )
+        elif compute_val_loss:  # apply if val loss
+            assert targets
+            # 1000 --> 512
+            temp_proposal_append_gt = self.proposal_append_gt
+            self.proposal_append_gt = False
+            proposals = self.label_and_sample_proposals(
+                proposals, targets, branch=branch
+            )  # do not apply target on proposals
+            self.proposal_append_gt = temp_proposal_append_gt
+        del targets
+        if (self.training and compute_loss) or compute_val_loss:
+            # losses, _ = self._forward_box(
+            #     features, proposals, compute_loss, compute_val_loss, branch
+            # )
+            losses, _ = self._forward_box_weak(features, proposals, compute_loss, compute_val_loss, branch)
+            return proposals, losses
+        else:
+            pred_instances, predictions = self._forward_box_weak(
+                features, proposals, compute_loss, compute_val_loss, branch
+            )
+            return pred_instances, predictions
+
+
+    def _forward_box_weak(
+            self, features: Dict[str, torch.Tensor],
+            proposals: List[Instances],
+            compute_loss: bool = True,
+            compute_val_loss: bool = False,
+            branch = "",
+    ) -> Union[Dict[str, torch.Tensor], List[Instances]]:
+        """
+        Forward logic of the box prediction branch. If `self.train_on_pred_boxes is True`,
+            the function puts predicted boxes in the `proposal_boxes` field of `proposals` argument.
+
+        Args:
+            features (dict[str, Tensor]): mapping from feature map names to tensor.
+                Same as in :meth:`ROIHeads.forward`.
+            proposals (list[Instances]): the per-image object proposals with
+                their matching ground truth.
+                Each has fields "proposal_boxes", and "objectness_logits",
+                "gt_classes", "gt_boxes".
+
+        Returns:
+            In training, a dict of losses.
+            In inference, a list of `Instances`, the predicted instances.
+        """
+
+
+        features = [features[f] for f in self.box_in_features]
+        box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
+        box_features = self.box_head(box_features)
+        cls_predictions, det_predictions = self.box_predictor(box_features)
+        del box_features
+
+
+        if ( self.training and compute_loss) or compute_val_loss:
+            num_proposal_per_image = [len(p) for p in proposals]
+        # TODO: better implementation to calculate loss using rest inputs with non-valid proposals
+            if 0 in num_proposal_per_image:
+                return {"loss_mil": 0.0 * cls_predictions.sum()}
+
+            # objectness_scores = torch.unsqueeze(torch.cat([p.objectness_logits for p in proposals]), dim=1)
+
+            cls_scores = F.softmax(cls_predictions[:, :-1], dim=1)
+            # max_cls_ids = torch.unsqueeze(torch.argmax(cls_predictions[:, :-1], dim=1), dim=1)
+            # objectness_scores = torch.zeros_like(cls_scores).scatter_(
+            #     dim=1, index=max_cls_ids, src=objectness_scores
+            # )
+
+            pred_img_cls_logits = torch.cat(
+                [
+                    torch.sum(cls * F.softmax(det, dim=0), dim=0, keepdim=True)
+                    for cls, det in zip(
+                    cls_scores.split(num_proposal_per_image, dim=0),
+                    det_predictions.split(num_proposal_per_image, dim=0))
+                ],
+                dim=0,
+            )
+
+            img_cls_losses = F.binary_cross_entropy(
+                torch.clamp(pred_img_cls_logits, min=1e-6, max=1.0 - 1e-6),
+                self.gt_classes_img_oh,
+                reduction='mean'
+            )
+        return {"loss_mil": img_cls_losses}

@@ -174,7 +174,8 @@ class BaselineTrainer(DefaultTrainer):
         elif evaluator_type == "pascal_voc":
             return PascalVOCDetectionEvaluator(dataset_name)
         elif evaluator_type == "pascal_voc_water":
-            return PascalVOCDetectionEvaluator(dataset_name, target_classnames=["bicycle", "bird", "car", "cat", "dog", "person"])
+            return PascalVOCDetectionEvaluator(dataset_name,
+                                               target_classnames=["bicycle", "bird", "car", "cat", "dog", "person"])
         if len(evaluator_list) == 0:
             raise NotImplementedError(
                 "no Evaluator for the dataset {} with the type {}".format(
@@ -257,7 +258,7 @@ class BaselineTrainer(DefaultTrainer):
         if comm.is_main_process():
             if "data_time" in all_metrics_dict[0]:
                 data_time = np.max([x.pop("data_time")
-                                   for x in all_metrics_dict])
+                                    for x in all_metrics_dict])
                 self.storage.put_scalar("data_time", data_time)
 
             metrics_dict = {
@@ -300,7 +301,6 @@ class ATeacherTrainer(DefaultTrainer):
                               backbone_output_shape=model.backbone.output_shape(),
                               vis_period=0, weak_head=True).to(model.device)
 
-
         # For training, wrap with DDP. But don't need this for inference.
         if comm.get_world_size() > 1:
             if comm.get_world_size() != 4:
@@ -334,7 +334,6 @@ class ATeacherTrainer(DefaultTrainer):
 
         self.probe = OpenMatchTrainerProbe(cfg)
         self.register_hooks(self.build_hooks())
-
 
     def resume_or_load(self, resume=True):
         """
@@ -375,7 +374,8 @@ class ATeacherTrainer(DefaultTrainer):
         elif evaluator_type == "pascal_voc":
             return PascalVOCDetectionEvaluator(dataset_name)
         elif evaluator_type == "pascal_voc_water":
-            return PascalVOCDetectionEvaluator(dataset_name, target_classnames=["bicycle", "bird", "car", "cat", "dog", "person"])
+            return PascalVOCDetectionEvaluator(dataset_name,
+                                               target_classnames=["bicycle", "bird", "car", "cat", "dog", "person"])
         if len(evaluator_list) == 0:
             raise NotImplementedError(
                 "no Evaluator for the dataset {} with the type {}".format(
@@ -417,6 +417,8 @@ class ATeacherTrainer(DefaultTrainer):
                     self.before_step()
                     self.run_step_full_semisup()
                     self.after_step()
+                    if self.iter % 500 == 0:
+                        self.checkpointer.save("model_{}.pt".format(self.iter))
             except Exception:
                 logger.exception("Exception during training:")
                 raise
@@ -462,7 +464,7 @@ class ATeacherTrainer(DefaultTrainer):
         return new_proposal_inst
 
     def process_pseudo_label(
-        self, proposals_rpn_unsup_k, cur_threshold, proposal_type, psedo_label_method=""
+            self, proposals_rpn_unsup_k, cur_threshold, proposal_type, psedo_label_method=""
     ):
         list_instances = []
         num_proposal_output = 0.0
@@ -498,15 +500,15 @@ class ATeacherTrainer(DefaultTrainer):
         for unlabel_datum, lab_inst in zip(unlabled_data, label):
             unlabel_datum["instances"] = lab_inst
         return unlabled_data
-    
+
     def get_label(self, label_data):
         label_list = []
         for label_datum in label_data:
             if "instances" in label_datum.keys():
                 label_list.append(copy.deepcopy(label_datum["instances"]))
-        
+
         return label_list
-    
+
     # def get_label_test(self, label_data):
     #     label_list = []
     #     for label_datum in label_data:
@@ -558,18 +560,17 @@ class ATeacherTrainer(DefaultTrainer):
             gt_unlabel_k = self.get_label(unlabel_data_k)
             # gt_unlabel_q = self.get_label_test(unlabel_data_q)
 
-
-            #  0. remove unlabeled data labels
+            #  0. convert to weakly labeled data
             unlabel_data_q = self.remove_label(unlabel_data_q)
-            unlabel_data_k = self.remove_label(unlabel_data_k)
+            unlabel_data_k = self.convert_to_weak_label(unlabel_data_k)
 
             #  1. generate the pseudo-label using teacher model
 
-            # for param in self.model.module.proposal_generator.parameters():
-            #     param.grad = None
-            #
-            # for param in self.model.module.roi_heads.parameters():
-            #     param.grad = None
+            for param in self.model.module.proposal_generator.parameters():
+                param.grad = None
+
+            for param in self.model.module.roi_heads.parameters():
+                param.grad = None
 
             with torch.no_grad():
                 (
@@ -579,21 +580,21 @@ class ATeacherTrainer(DefaultTrainer):
                     _,
                 ) = self.model(unlabel_data_k, branch="unsup_data_weak")
 
-            ######################## For probe #################################
-            # import pdb; pdb. set_trace()
+                ######################## For probe #################################
+                # import pdb; pdb. set_trace()
 
-            # probe_metrics = ['compute_fp_gtoutlier', 'compute_num_box']
-            # probe_metrics = ['compute_num_box']
-            # analysis_pred, _ = self.probe.compute_num_box(gt_unlabel_k,proposals_roih_unsup_k,'pred')
-            # record_dict.update(analysis_pred)
-            ######################## For probe END #################################
+                # probe_metrics = ['compute_fp_gtoutlier', 'compute_num_box']
+                # probe_metrics = ['compute_num_box']
+                # analysis_pred, _ = self.probe.compute_num_box(gt_unlabel_k,proposals_roih_unsup_k,'pred')
+                # record_dict.update(analysis_pred)
+                ######################## For probe END #################################
 
-            #  2. Pseudo-labeling
+                #  2. Pseudo-labeling
                 cur_threshold = self.cfg.SEMISUPNET.BBOX_THRESHOLD
 
                 joint_proposal_dict = {}
                 joint_proposal_dict["proposals_rpn"] = proposals_rpn_unsup_k
-                #Process pseudo labels and thresholding
+                # Process pseudo labels and thresholding
                 (
                     pesudo_proposals_rpn_unsup_k,
                     nun_pseudo_bbox_rpn,
@@ -615,14 +616,12 @@ class ATeacherTrainer(DefaultTrainer):
                 unlabel_data_q = self.add_label(
                     unlabel_data_q, joint_proposal_dict["proposals_pseudo_roih"]
                 )
-                unlabel_data_k = self.add_label(
-                    unlabel_data_k, joint_proposal_dict["proposals_pseudo_roih"]
-                )
+                # unlabel_data_k = self.add_label(
+                #     unlabel_data_k, joint_proposal_dict["proposals_pseudo_roih"]
+                # )
 
                 all_label_data = label_data_q + label_data_k
                 all_unlabel_data = unlabel_data_q
-
-
 
             # 4. input both strongly and weakly augmented labeled data into student model
             features_s1, images, gt_instances = self.model(all_label_data, branch='backbone')
@@ -630,6 +629,17 @@ class ATeacherTrainer(DefaultTrainer):
                 features_s1, images, gt_instances, branch="supervised"
             )
             record_dict.update(record_all_label_data)
+
+            features_s2_weak, images, gt_instances = self.model(unlabel_data_k, branch='backbone')
+            record_all_unlabel_data, _, _, _ = self.s2_head(
+                features_s2_weak, images, gt_instances, branch="mil"
+            )
+            new_record_all_unlabel_data = {}
+            for key in record_all_unlabel_data.keys():
+                new_record_all_unlabel_data[key + "_mil"] = record_all_unlabel_data[
+                    key
+                ]
+            record_dict.update(new_record_all_unlabel_data)
 
             # 5. input strongly augmented unlabeled data into model
 
@@ -659,7 +669,6 @@ class ATeacherTrainer(DefaultTrainer):
             record_all_domain_data, _, _, _ = self.model(all_domain_data, branch="domain")
             record_dict.update(record_all_domain_data)
 
-
             # weight losses
             loss_dict = {}
             for key in record_dict.keys():
@@ -672,13 +681,18 @@ class ATeacherTrainer(DefaultTrainer):
                                 record_dict[key] *
                                 self.cfg.SEMISUPNET.UNSUP_LOSS_WEIGHT
                         )
+                    elif "record_dict" in key:
+                        loss_dict[key] = (
+                                record_dict[key] *
+                                self.cfg.SEMISUPNET.UNSUP_LOSS_WEIGHT #TODO
+                        )
                     elif (
                             key == "loss_D_img_s" or key == "loss_D_img_t"
                     ):  # set weight for discriminator
                         # import pdb
                         # pdb.set_trace()
                         loss_dict[key] = record_dict[
-                                             key] * 0.01 # self.cfg.SEMISUPNET.DIS_LOSS_WEIGHT  # Need to modify defaults and yaml
+                                             key] * 0.01  # self.cfg.SEMISUPNET.DIS_LOSS_WEIGHT  # Need to modify defaults and yaml
                     else:  # supervised loss
                         loss_dict[key] = record_dict[key] * 1
 
@@ -710,7 +724,7 @@ class ATeacherTrainer(DefaultTrainer):
                 # data_time among workers can have high variance. The actual latency
                 # caused by data_time is the maximum among workers.
                 data_time = np.max([x.pop("data_time")
-                                   for x in all_metrics_dict])
+                                    for x in all_metrics_dict])
                 self.storage.put_scalar("data_time", data_time)
 
             # average the rest metrics
@@ -731,7 +745,6 @@ class ATeacherTrainer(DefaultTrainer):
             if len(metrics_dict) > 1:
                 self.storage.put_scalars(**metrics_dict)
 
-
     @torch.no_grad()
     def _update_teacher_model(self, keep_rate=0.9996):
 
@@ -747,7 +760,6 @@ class ATeacherTrainer(DefaultTrainer):
             head_s1_rpn_dict = self.s1_head.proposal_generator.state_dict()
             head_s1_roi_dict = self.s1_head.roi_heads.state_dict()
 
-
         if comm.get_world_size() > 1:
 
             head_s2_rpn_dict = self.s2_head.module.proposal_generator.state_dict()
@@ -760,7 +772,7 @@ class ATeacherTrainer(DefaultTrainer):
         for key, value in self.model.module.proposal_generator.state_dict().items():
             if key in head_s1_rpn_dict.keys() and key in head_s2_rpn_dict.keys():
                 new_teacher_dict[key] = (
-                        (head_s1_rpn_dict[key] * 0.5 + head_s2_rpn_dict[key] * 0.5 ) *
+                        (head_s1_rpn_dict[key] * 0.5 + head_s2_rpn_dict[key] * 0.5) *
                         (1 - keep_rate) + value * keep_rate
                 )
             else:
@@ -806,6 +818,7 @@ class ATeacherTrainer(DefaultTrainer):
                 if self.model.roi_heads.state_dict()[k].shape == self.s2_head.roi_heads.state_dict()[k].shape:
                     param = param.data
                     self.s2_head.roi_heads.state_dict()[k].copy_(param)
+
     @torch.no_grad()
     def _copy_main_model(self):
         print("Copyyyy " * 10)
@@ -869,7 +882,7 @@ class ATeacherTrainer(DefaultTrainer):
         # ret.append(hooks.EvalHook(cfg.TEST.EVAL_PERIOD,
         #            test_and_save_results_student))
         ret.append(hooks.EvalHook(cfg.TEST.EVAL_PERIOD,
-                   test_and_save_results_teacher))
+                                  test_and_save_results_teacher))
 
         if comm.is_main_process():
             # run writers in the end, so that evaluation metrics are written
