@@ -579,11 +579,11 @@ class ATeacherTrainer(DefaultTrainer):
 
             #  1. generate the pseudo-label using teacher model
             #
-            # for param in self.model.module.proposal_generator.parameters():
-            #     param.grad = None
-            #
-            # for param in self.model.module.roi_heads.parameters():
-            #     param.grad = None
+            for param in self.model.module.proposal_generator.parameters():
+                param.grad = None
+
+            for param in self.model.module.roi_heads.parameters():
+                param.grad = None
 
             with torch.no_grad():
                 # (
