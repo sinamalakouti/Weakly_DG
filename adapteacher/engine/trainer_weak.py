@@ -563,7 +563,7 @@ class ATeacherTrainer(DefaultTrainer):
 
             #  0. convert to weakly labeled data
             unlabel_data_q = self.remove_label(unlabel_data_q)
-            # unlabel_ data_k = self.convert_to_weak_label(unlabel_data_k)
+            unlabel_data_k = self.remove_label(unlabel_data_k)
 
             #  1. generate the pseudo-label using teacher model
 
@@ -631,16 +631,16 @@ class ATeacherTrainer(DefaultTrainer):
             )
             record_dict.update(record_all_label_data)
 
-            features_s2_weak, images, gt_instances = self.model(unlabel_data_k, branch='backbone')
-            record_all_unlabel_data, _, _, _ = self.s2_head(
-                features_s2_weak, images, gt_instances, branch="mil"
-            )
-            new_record_all_unlabel_data = {}
-            for key in record_all_unlabel_data.keys():
-                new_record_all_unlabel_data[key + "_mil"] = record_all_unlabel_data[
-                    key
-                ]
-            record_dict.update(new_record_all_unlabel_data)
+            # features_s2_weak, images, gt_instances = self.model(unlabel_data_k, branch='backbone')
+            # record_all_unlabel_data, _, _, _ = self.s2_head(
+            #     features_s2_weak, images, gt_instances, branch="mil"
+            # )
+            # new_record_all_unlabel_data = {}
+            # for key in record_all_unlabel_data.keys():
+            #     new_record_all_unlabel_data[key + "_mil"] = record_all_unlabel_data[
+            #         key
+            #     ]
+            # record_dict.update(new_record_all_unlabel_data)
 
             # 5. input strongly augmented unlabeled data into model
 

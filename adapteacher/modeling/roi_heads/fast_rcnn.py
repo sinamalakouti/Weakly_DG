@@ -116,7 +116,15 @@ class WSDDNOutputs(object):
     An internal implementation that stores information about outputs of a Fast R-CNN head,
     and provides methods that are used to decode the outputs of a Fast R-CNN head.
     """
-
+    #            self.box2box_transform,
+    #             scores,
+    #             proposal_deltas,
+    #             proposals,
+    #             self.smooth_l1_beta,
+    #             self.box_reg_loss_type,
+    #             self.mean_loss,
+    #             gt_classes_img_oh,
+    #         ).losses()
     def __init__(
             self,
             box2box_transform,

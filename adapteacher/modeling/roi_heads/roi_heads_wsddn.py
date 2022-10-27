@@ -195,7 +195,7 @@ class WSDDNROIHeads(ROIHeads):
         else:
 
             pred_instances, predictions = self._forward_box_weak(features, proposals, compute_loss,
-                                                            compute_val_loss, branch)
+                                                                 compute_val_loss, branch)
 
             return pred_instances, predictions
 
@@ -240,8 +240,6 @@ class WSDDNROIHeads(ROIHeads):
         print(box_features)
         print(torch.isnan(box_features).sum().item())
 
-
-
         box_features = self.box_head(box_features)
 
         predictions = self.box_predictor.forward_weak(box_features, proposals)
@@ -263,10 +261,7 @@ class WSDDNROIHeads(ROIHeads):
             )
             return pred_instances, predictions
 
-
-
-############
-
+    ############
 
     def forward(
             self,
