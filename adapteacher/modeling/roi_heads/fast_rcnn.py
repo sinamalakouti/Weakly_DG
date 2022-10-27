@@ -223,7 +223,19 @@ class WSDDNOutputs(object):
             scalar Tensor
         """
         self._log_accuracy()
+        print("*"*50)
+        print("Binary Cross Entropy loss")
 
+        print("*" * 50)
+        print(self.predict_probs_img())
+        print("-"*20)
+        print(self.gt_classes_img_oh)
+        print("-" * 20)
+        print(self.gt_classes_img_oh.size(0))
+        print('+'*25)
+        assert self.predict_probs_img().shape == self.gt_classes_img_oh.shape, " {} != {}".format( self.predict_probs_img().shape, self.gt_classes_img_oh.shape)
+        print(torch.isnan(self.predict_probs_img()).sum().item())
+        print(torch.isnan(self.gt_classes_img_oh).sum().item())
         reduction = "mean" if self.mean_loss else "sum"
         return F.binary_cross_entropy(
             self.predict_probs_img(), self.gt_classes_img_oh, reduction=reduction
