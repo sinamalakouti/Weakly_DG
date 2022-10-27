@@ -22,8 +22,9 @@ from detectron2.structures import ImageList
 
 from adapteacher.modeling.meta_arch.model_definition import Generator
 
-
 from torchvision.transforms import CenterCrop
+
+
 ############### Image discriminator ##############
 class FCDiscriminator_img(nn.Module):
     def __init__(self, num_classes, ndf1=256, ndf2=128):
@@ -67,7 +68,7 @@ def grad_reverse(x):
 #######################
 
 @META_ARCH_REGISTRY.register()
-#class DAobjTwoStagePseudoLabGeneralizedRCNN(GeneralizedRCNN):
+# class DAobjTwoStagePseudoLabGeneralizedRCNN(GeneralizedRCNN):
 class DGobjGeneralizedRCNN(GeneralizedRCNN):
     @configurable
     def __init__(
@@ -122,6 +123,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
         # self.generator_IMG = Generator(1024, 3, 4)
 
         self.MSE_LOSS = nn.MSELoss()
+
     def build_discriminator(self):
         self.D_img = FCDiscriminator_img(self.backbone._out_feature_channels[self.dis_type]).to(
             self.device)  # Need to know the channel
@@ -154,6 +156,23 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
         images_t = ImageList.from_tensors(images_t, self.backbone.size_divisibility)
 
         return images, images_t
+
+    def forward_head(self, features_DI, images):
+        proposals_rpn, _ = self.proposal_generator(
+            images, features_DI, None, compute_loss=False
+        )
+
+        # roi_head lower branch (keep this for further production)
+        # notice that we do not use any target in ROI head to do inference!
+        proposals_roih, ROI_predictions = self.roi_heads(
+            images,
+            features_DI,
+            proposals_rpn,
+            targets=None,
+            compute_loss=False,
+            # branch=branch,
+        )
+        return {}, proposals_rpn, proposals_roih, ROI_predictions
 
     def forward(
             self, batched_inputs, branch="supervised", given_proposals=None, val_mode=False
@@ -277,8 +296,8 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             # loss_rec_img = self.MSE_LOSS(images_t.tensor, G_img)
             # losses["loss_rec_img_t"] = loss_rec_img * 0.01
 
-            losses["loss_D_img_s"] = loss_D_img_s#* 0.01
-            losses["loss_D_img_t"] = loss_D_img_t #* 0.01
+            losses["loss_D_img_s"] = loss_D_img_s  # * 0.01
+            losses["loss_D_img_t"] = loss_D_img_t  # * 0.01
 
             return losses, [], [], None
 
@@ -310,9 +329,9 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
                 images,
                 features_DI,
                 proposals_rpn,
-               compute_loss=True,
+                compute_loss=True,
                 targets=gt_instances,
-#                branch=branch, #TODO check this shit
+                #                branch=branch, #TODO check this shit
             )
 
             # visualization
@@ -326,7 +345,6 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             losses.update(detector_losses)
             losses.update(proposal_losses)
             losses["loss_D_img_s"] = loss_D_img_s * 0.001
-
 
             # features_DE_label = self.encoders_DE['labeled'](images.tensor)
             # G_img = self.generator_IMG(features_DI[self.dis_type] + features_DE_label[self.dis_type])
@@ -357,8 +375,6 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
         elif branch == "backbone":
             return features_DI, images, gt_instances
 
-
-
     def visualize_training(self, batched_inputs, proposals, branch=""):
         """
         This function different from the original one:
@@ -378,7 +394,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
 
         storage = get_event_storage()
         max_vis_prop = 20
-        i  = 0
+        i = 0
         for input, prop in zip(batched_inputs, proposals):
             img = input["image"]
             img = convert_image_to_rgb(img.permute(1, 2, 0), self.input_format)
@@ -401,8 +417,6 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             )
             storage.put_image(vis_name, vis_img)
             from torchvision.utils import save_image
-            save_image(torch.tensor(vis_img)/255, 'src_img_{}.png'.format(i))
+            save_image(torch.tensor(vis_img) / 255, 'src_img_{}.png'.format(i))
             i += 1
-         #   break  # only visualize one image in a batch
-
-
+        #   break  # only visualize one image in a batch

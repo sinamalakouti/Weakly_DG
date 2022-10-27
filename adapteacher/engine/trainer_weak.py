@@ -578,21 +578,27 @@ class ATeacherTrainer(DefaultTrainer):
 
 
             #  1. generate the pseudo-label using teacher model
-        
-            for param in self.model.module.proposal_generator.parameters():
-                param.grad = None
-
-            for param in self.model.module.roi_heads.parameters():
-                param.grad = None
+            #
+            # for param in self.model.module.proposal_generator.parameters():
+            #     param.grad = None
+            #
+            # for param in self.model.module.roi_heads.parameters():
+            #     param.grad = None
 
             with torch.no_grad():
+                # (
+                #     _,
+                #     proposals_rpn_unsup_k,
+                #     proposals_roih_unsup_k,
+                #     _,
+                # ) = self.model(unlabel_data_k, branch="unsup_data_weak")
+
                 (
                     _,
                     proposals_rpn_unsup_k,
                     proposals_roih_unsup_k,
-                    _,
-                ) = self.model(unlabel_data_k, branch="unsup_data_weak")
-
+                    _
+                ) = self.model.forward_head(features_s2_weak, images)
                 ######################## For probe #################################
                 # import pdb; pdb. set_trace()
 
