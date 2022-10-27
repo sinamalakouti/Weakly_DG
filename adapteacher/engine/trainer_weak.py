@@ -309,9 +309,9 @@ class ATeacherTrainer(DefaultTrainer):
             model = DistributedDataParallel(
                 model, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
             s1_head = DistributedDataParallel(
-                s1_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False)
+                s1_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
             s2_head = DistributedDataParallel(
-                s2_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False)
+                s2_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
         self.s1_head = s1_head
         self.s2_head = s2_head
         ensemmbl_ts_model = EnsembleTSModel(model, self.s1_head, self.s2_head)
@@ -551,8 +551,8 @@ class ATeacherTrainer(DefaultTrainer):
                     self.iter - self.cfg.SEMISUPNET.BURN_UP_STEP
             ) % self.cfg.SEMISUPNET.TEACHER_UPDATE_ITER == 0:
                 None
-                # self._update_teacher_model(
-                #     keep_rate=self.cfg.SEMISUPNET.EMA_KEEP_RATE)
+                self._update_teacher_model(
+                    keep_rate=self.cfg.SEMISUPNET.EMA_KEEP_RATE)
 
             record_dict = {}
 
@@ -646,7 +646,7 @@ class ATeacherTrainer(DefaultTrainer):
 
             features_s2, images, gt_instances = self.model(all_unlabel_data, branch='backbone')
             record_all_unlabel_data, _, _, _ = self.s2_head(
-                features_s2, images, gt_instances, branch="supervised_target"
+                features_s2, images, gt_instances, branch="supervised_target    "
             )
             new_record_all_unlabel_data = {}
             for key in record_all_unlabel_data.keys():
@@ -809,7 +809,12 @@ class ATeacherTrainer(DefaultTrainer):
             self.s2_head.module.proposal_generator.load_state_dict(self.model.module.proposal_generator.state_dict())
 
             self.s1_head.module.roi_heads.load_state_dict(self.model.module.roi_heads.state_dict())
-            self.s2_head.module.roi_heads.load_state_dict(self.model.module.roi_heads.state_dict())
+            # self.s2_head.module.roi_heads.load_state_dict(self.model.module.roi_heads.state_dict())
+            for k, param in self.model.module.roi_heads.state_dict().items():
+                if self.model.roi_heads.module.state_dict()[k].shape == self.s2_head.module.roi_heads.state_dict()[k].shape:
+                    param = param.data
+                    self.s2_head.module.roi_heads.state_dict()[k].copy_(param)
+
         else:
             self.s1_head.proposal_generator.load_state_dict(self.model.proposal_generator.state_dict())
             self.s2_head.proposal_generator.load_state_dict(self.model.proposal_generator.state_dict())

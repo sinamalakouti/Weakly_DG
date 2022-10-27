@@ -216,7 +216,6 @@ class WSDDNOutputs(object):
             self._log_accuracy()
             return F.cross_entropy(self.pred_class_logits, self.gt_classes, reduction="mean")
 
-
     def binary_cross_entropy_loss(self):
         """
         Compute the softmax cross entropy loss for box classification.
