@@ -309,9 +309,9 @@ class ATeacherTrainer(DefaultTrainer):
             model = DistributedDataParallel(
                 model, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
             s1_head = DistributedDataParallel(
-                s1_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
+                s1_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=False)
             s2_head = DistributedDataParallel(
-                s2_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
+                s2_head, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=False)
         self.s1_head = s1_head
         self.s2_head = s2_head
         ensemmbl_ts_model = EnsembleTSModel(model, self.s1_head, self.s2_head)
@@ -579,11 +579,11 @@ class ATeacherTrainer(DefaultTrainer):
 
             #  1. generate the pseudo-label using teacher model
             #
-            for param in self.model.module.proposal_generator.parameters():
-                param.grad = None
-
-            for param in self.model.module.roi_heads.parameters():
-                param.grad = None
+            # for param in self.model.module.proposal_generator.parameters():
+            #     param.grad = None
+            #
+            # for param in self.model.module.roi_heads.parameters():
+            #     param.grad = None
 
             with torch.no_grad():
                 # (
@@ -598,7 +598,7 @@ class ATeacherTrainer(DefaultTrainer):
                     proposals_rpn_unsup_k,
                     proposals_roih_unsup_k,
                     _
-                ) = self.model.module.forward_head(features_s2_weak, images)
+                ) = self.model.forward_head(features_s2_weak, images)
                 ######################## For probe #################################
                 # import pdb; pdb. set_trace()
 
