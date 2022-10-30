@@ -598,7 +598,7 @@ class ATeacherTrainer(DefaultTrainer):
                     proposals_rpn_unsup_k,
                     proposals_roih_unsup_k,
                     _
-                ) = self.model.forward_head(features_s2_weak, images)
+                ) = self.model.module.forward_head(features_s2_weak, images)
                 ######################## For probe #################################
                 # import pdb; pdb. set_trace()
 
