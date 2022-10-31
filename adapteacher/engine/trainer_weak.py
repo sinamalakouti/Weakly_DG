@@ -555,7 +555,7 @@ class ATeacherTrainer(DefaultTrainer):
                     keep_rate=self.cfg.SEMISUPNET.EMA_KEEP_RATE)
 
             record_dict = {}
-            print('iteration:   ', self.iter)
+            # print('iteration:   ', self.iter)
             ######################## For probe #################################
             # import pdb; pdb. set_trace()
             gt_unlabel_k = self.get_label(unlabel_data_k)
