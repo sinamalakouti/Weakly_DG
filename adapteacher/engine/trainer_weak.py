@@ -897,10 +897,11 @@ class ATeacherTrainer(DefaultTrainer):
         def test_and_save_results_teacher():
             self._last_eval_results_teacher = self.test(
                 self.cfg, self.model)
-            # todo wandb log the inference
-            res_dict = self._last_eval_results_teacher['bbox']
-            res_dict['iter'] = self.iter
-            self.wandb_run.log(res_dict)
+            if len(self._last_eval_results_teacher):
+                # todo wandb log the inference
+                res_dict = self._last_eval_results_teacher['bbox']
+                res_dict['iter'] = self.iter
+                self.wandb_run.log(res_dict)
 
             return self._last_eval_results_teacher
 
