@@ -282,7 +282,7 @@ class BaselineTrainer(DefaultTrainer):
 
 # Adaptive Teacher Trainer
 class ATeacherTrainer(DefaultTrainer):
-    def __init__(self, cfg):
+    def __init__(self, cfg, wandb_run=None):
         """
         Args:
             cfg (CfgNode):
@@ -302,7 +302,7 @@ class ATeacherTrainer(DefaultTrainer):
         s2_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg,
                               backbone_output_shape=model.backbone.output_shape(),
                               vis_period=0, weak_head=True).to(model.device)
-
+        self.wandb_run = wandb_run
         # For training, wrap with DDP. But don't need this for inference.
         if comm.get_world_size() > 1:
             if comm.get_world_size() != 4:
@@ -712,7 +712,7 @@ class ATeacherTrainer(DefaultTrainer):
             wandb_logs_dict = metrics_dict.copy()
             wandb_logs_dict['losses'] = losses
             wandb_logs_dict['iter'] = self.iter
-            wandb.log(wandb_logs_dict)
+            self.wandb_run.log(wandb_logs_dict)
             metrics_dict["data_time"] = data_time
         self._write_metrics(metrics_dict)
 
@@ -900,7 +900,7 @@ class ATeacherTrainer(DefaultTrainer):
             # todo wandb log the inference
             res_dict = self._last_eval_results_teacher['bbox']
             res_dict['iter'] = self.iter
-            wandb.log(res_dict)
+            self.wandb_run.log(res_dict)
 
             return self._last_eval_results_teacher
 

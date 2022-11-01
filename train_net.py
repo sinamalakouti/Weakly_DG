@@ -42,6 +42,8 @@ def setup(args):
 
 def main(args):
     cfg = setup(args)
+    wandb_run = wandb.init(project="WSOD_DG_v3_MIL", config=cfg)
+
     if cfg.SEMISUPNET.Trainer == "ateacher":
         Trainer = ATeacherTrainer
     elif cfg.SEMISUPNET.Trainer == "baseline":
@@ -68,7 +70,7 @@ def main(args):
             res = Trainer.test(cfg, model)
         return res
 
-    trainer = Trainer(cfg)
+    trainer = Trainer(cfg, wandb_run)
     trainer.resume_or_load(resume=args.resume)
 
     return trainer.train()
@@ -76,7 +78,7 @@ def main(args):
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
-    wandb.init(project="WSOD_DG_v3_MIL")
+
     print("Command Line Args:", args)
     launch(
         main,
