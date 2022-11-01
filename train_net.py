@@ -40,9 +40,11 @@ def setup(args):
     return cfg
 
 
-def main(args):
+def main(args, wandb_run=None):
+    print("lool")
     cfg = setup(args)
-    wandb_run = wandb.init(project="WSOD_DG_v3_MIL", config=cfg)
+    if wandb_run:
+        wandb_run.config.update(cfg)
 
     if cfg.SEMISUPNET.Trainer == "ateacher":
         Trainer = ATeacherTrainer
@@ -78,7 +80,8 @@ def main(args):
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
-
+    wandb_run = None
+    wandb_run = wandb.init(project="WSOD_DG_v3_MIL")
     print("Command Line Args:", args)
     launch(
         main,
@@ -86,5 +89,5 @@ if __name__ == "__main__":
         num_machines=args.num_machines,
         machine_rank=args.machine_rank,
         dist_url=args.dist_url,
-        args=(args,),
+        args=(args,wandb_run),
     )
