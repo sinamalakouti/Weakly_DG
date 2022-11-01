@@ -112,10 +112,10 @@ class Custom_head(nn.Module):
         elif branch.startswith("mil"):
 
             # Region proposal network
-            with torch.no_grad():
-                proposals_rpn, _ = self.proposal_generator(
-                    images, features, gt_instances, compute_loss=False
-                )
+            # with torch.no_grad():
+            proposals_rpn, _ = self.proposal_generator(
+                images, features, gt_instances, compute_loss=False
+            )
 
             # roi_head lower branch  TODO: check how roi_head works
             _, detector_losses = self.roi_heads.forward_weak(

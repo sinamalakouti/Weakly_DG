@@ -16,3 +16,5 @@ output/exp_city/last_checkpoint
 configs/faster_rcnn_VGG_cross_city.yaml
 datasets/bdd100k.zip
 *.zip
+*.log
+*.wandb

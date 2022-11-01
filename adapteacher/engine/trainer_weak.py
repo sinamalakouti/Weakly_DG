@@ -3,6 +3,7 @@ import os
 import time
 import logging
 import torch
+import wandb
 from torch.nn import Parameter
 from torch.nn.parallel import DistributedDataParallel
 from fvcore.nn.precise_bn import get_bn_modules
@@ -43,6 +44,7 @@ from ..modeling.meta_arch.custom_head import Custom_head
 
 
 # Supervised-only Trainer
+
 class BaselineTrainer(DefaultTrainer):
     def __init__(self, cfg):
         """
@@ -417,6 +419,7 @@ class ATeacherTrainer(DefaultTrainer):
                     self.before_step()
                     self.run_step_full_semisup()
                     self.after_step()
+
                     if self.iter % 500 == 0:
                         self.checkpointer.save("model_{}.pt".format(self.iter))
             except Exception:
@@ -576,7 +579,6 @@ class ATeacherTrainer(DefaultTrainer):
             unlabel_data_q = self.remove_label(unlabel_data_q)
             unlabel_data_k = self.remove_label(unlabel_data_k)
 
-
             #  1. generate the pseudo-label using teacher model
             #
             for param in self.model.module.proposal_generator.parameters():
@@ -649,8 +651,6 @@ class ATeacherTrainer(DefaultTrainer):
             )
             record_dict.update(record_all_label_data)
 
-
-
             # 5. input strongly augmented unlabeled data into model
 
             features_s2, images, gt_instances = self.model(all_unlabel_data, branch='backbone')
@@ -694,7 +694,7 @@ class ATeacherTrainer(DefaultTrainer):
                     elif "mil" in key:
                         loss_dict[key] = (
                                 record_dict[key] *
-                                self.cfg.SEMISUPNET.UNSUP_LOSS_WEIGHT #TODO
+                                self.cfg.SEMISUPNET.UNSUP_LOSS_WEIGHT  # TODO
                         )
                     elif (
                             key == "loss_D_img_s" or key == "loss_D_img_t"
@@ -707,9 +707,13 @@ class ATeacherTrainer(DefaultTrainer):
                         loss_dict[key] = record_dict[key] * 1
 
             losses = sum(loss_dict.values())
-
-        metrics_dict = record_dict
-        metrics_dict["data_time"] = data_time
+        with torch.no_grad():
+            metrics_dict = record_dict
+            wandb_logs_dict = metrics_dict.copy()
+            wandb_logs_dict['losses'] = losses
+            wandb_logs_dict['iter'] = self.iter
+            wandb.log(wandb_logs_dict)
+            metrics_dict["data_time"] = data_time
         self._write_metrics(metrics_dict)
 
         self.optimizer.zero_grad()
@@ -820,7 +824,8 @@ class ATeacherTrainer(DefaultTrainer):
             self.s1_head.module.roi_heads.load_state_dict(self.model.module.roi_heads.state_dict())
             # self.s2_head.module.roi_heads.load_state_dict(self.model.module.roi_heads.state_dict())
             for k, param in self.model.module.roi_heads.state_dict().items():
-                if self.model.module.roi_heads.state_dict()[k].shape == self.s2_head.module.roi_heads.state_dict()[k].shape:
+                if self.model.module.roi_heads.state_dict()[k].shape == self.s2_head.module.roi_heads.state_dict()[
+                    k].shape:
                     param = param.data
                     self.s2_head.module.roi_heads.state_dict()[k].copy_(param)
 
@@ -892,6 +897,11 @@ class ATeacherTrainer(DefaultTrainer):
         def test_and_save_results_teacher():
             self._last_eval_results_teacher = self.test(
                 self.cfg, self.model)
+            # todo wandb log the inference
+            res_dict = self._last_eval_results_teacher['bbox']
+            res_dict['iter'] = self.iter
+            wandb.log(res_dict)
+
             return self._last_eval_results_teacher
 
         # ret.append(hooks.EvalHook(cfg.TEST.EVAL_PERIOD,
