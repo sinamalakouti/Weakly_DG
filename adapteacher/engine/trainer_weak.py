@@ -298,7 +298,7 @@ class ATeacherTrainer(DefaultTrainer):
         # create an teacher model
         s1_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg,
                               backbone_output_shape=model.backbone.output_shape(),
-                              vis_period=0, weak_head=False).to(model.device)
+                              vis_period=0, weak_head=True).to(model.device)
         s2_head = Custom_head(proposal_generator=None, roi_heads=None, cfg=cfg,
                               backbone_output_shape=model.backbone.output_shape(),
                               vis_period=0, weak_head=True).to(model.device)

@@ -100,6 +100,10 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
     ) -> Tuple[List[Instances], Dict[str, torch.Tensor]]:
 
         del images
+        self.gt_classes_img, self.gt_classes_img_int, self.gt_classes_img_oh = get_image_level_gt(
+            targets, self.num_classes
+        )
+
         if self.training and compute_loss:  # apply if training loss
             assert targets
             # 1000 --> 512
@@ -121,6 +125,8 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
             losses, _ = self._forward_box(
                 features, proposals, compute_loss, compute_val_loss, branch
             )
+            losses_weak, _ = self._forward_box_weak(features, proposals, compute_loss, compute_val_loss, branch)
+            losses.update(losses_weak)
             return proposals, losses
         else:
             pred_instances, predictions = self._forward_box(
