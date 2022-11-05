@@ -125,8 +125,9 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
             losses, _ = self._forward_box(
                 features, proposals, compute_loss, compute_val_loss, branch
             )
-            losses_weak, _ = self._forward_box_weak(features, proposals, compute_loss, compute_val_loss, branch)
-            losses.update(losses_weak)
+            if self.weak_head:
+                losses_weak, _ = self._forward_box_weak(features, proposals, compute_loss, compute_val_loss, branch)
+                losses.update(losses_weak)
             return proposals, losses
         else:
             pred_instances, predictions = self._forward_box(
