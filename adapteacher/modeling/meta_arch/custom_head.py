@@ -80,10 +80,21 @@ class Custom_head(nn.Module):
                 targets=gt_instances,
                 #  branch=branch,
             )
+            _, detector_losses_weak = self.roi_heads.forward_weak(
+                # images,
+                features,
+                proposals_rpn,
+                compute_loss=True,
+                targets=gt_instances,
+                branch=branch,
+            )
+
+
 
             losses = {}
             losses.update(detector_losses)
             losses.update(proposal_losses)
+            losses.update(detector_losses_weak)
 
             return losses, [], [], None
 

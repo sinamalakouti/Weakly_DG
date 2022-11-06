@@ -1,6 +1,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import torch
 from typing import Dict, List, Optional, Tuple, Union
+import torch.nn as nn
+from detectron2.config import configurable
 from detectron2.structures import Boxes, ImageList, Instances, pairwise_iou
 from detectron2.modeling.proposal_generator.proposal_utils import (
     add_ground_truth_to_proposals,
@@ -43,6 +45,9 @@ def get_image_level_gt(targets, num_classes):
 
 @ROI_HEADS_REGISTRY.register()
 class StandardROIHeadsPseudoLab(StandardROIHeads):
+
+
+
     @classmethod
     def _init_box_head(cls, cfg, input_shape):
         # fmt: off
@@ -70,6 +75,7 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
                 channels=in_channels, height=pooler_resolution, width=pooler_resolution
             ),
         )
+
         if cfg.MODEL.ROI_HEADS.LOSS == "CrossEntropy":
             box_predictor = FastRCNNOutputLayers(cfg, box_head.output_shape)
         elif cfg.MODEL.ROI_HEADS.LOSS == "FocalLoss":
@@ -82,7 +88,7 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
             "box_pooler": box_pooler,
             "box_head": box_head,
             "box_predictor": box_predictor,
-            "weak_head": None
+
         }
 
     def build_region_head(self, inc, outc):
@@ -126,9 +132,9 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
             losses, _ = self._forward_box(
                 features, proposals, compute_loss, compute_val_loss, branch
             )
-            if self.weak_head:
-                losses_weak, _ = self._forward_box_weak(features, proposals, compute_loss, compute_val_loss, branch)
-                losses.update(losses_weak)
+            # if self.weak_head:
+            #     losses_weak, _ = self._forward_box_weak(features, proposals, compute_loss, compute_val_loss, branch)
+            #     losses.update(losses_weak)
             return proposals, losses
         else:
             pred_instances, predictions = self._forward_box(
