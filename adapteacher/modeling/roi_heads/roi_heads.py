@@ -82,6 +82,7 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
             "box_pooler": box_pooler,
             "box_head": box_head,
             "box_predictor": box_predictor,
+            "weak_head": None
         }
 
     def build_region_head(self, inc, outc):
