@@ -821,8 +821,14 @@ class ATeacherTrainer(DefaultTrainer):
             self.s1_head.module.proposal_generator.load_state_dict(self.model.module.proposal_generator.state_dict())
             self.s2_head.module.proposal_generator.load_state_dict(self.model.module.proposal_generator.state_dict())
 
-            self.s1_head.module.roi_heads.load_state_dict(self.model.module.roi_heads.state_dict())
+            # self.s1_head.module.roi_heads.load_state_dict(self.model.module.roi_heads.state_dict())
             # self.s2_head.module.roi_heads.load_state_dict(self.model.module.roi_heads.state_dict())
+            for k, param in self.model.module.roi_heads.state_dict().items():
+                if self.model.module.roi_heads.state_dict()[k].shape == self.s1_head.module.roi_heads.state_dict()[
+                    k].shape:
+                    param = param.data
+                    self.s1_head.module.roi_heads.state_dict()[k].copy_(param)
+
             for k, param in self.model.module.roi_heads.state_dict().items():
                 if self.model.module.roi_heads.state_dict()[k].shape == self.s2_head.module.roi_heads.state_dict()[
                     k].shape:
@@ -834,6 +840,11 @@ class ATeacherTrainer(DefaultTrainer):
             self.s2_head.proposal_generator.load_state_dict(self.model.proposal_generator.state_dict())
 
             self.s1_head.roi_heads.load_state_dict(self.model.roi_heads.state_dict())
+            for k, param in self.model.roi_heads.state_dict().items():
+                if self.model.roi_heads.state_dict()[k].shape == self.s1_head.roi_heads.state_dict()[k].shape:
+                    param = param.data
+                    self.s1_head.roi_heads.state_dict()[k].copy_(param)
+
             for k, param in self.model.roi_heads.state_dict().items():
                 if self.model.roi_heads.state_dict()[k].shape == self.s2_head.roi_heads.state_dict()[k].shape:
                     param = param.data
