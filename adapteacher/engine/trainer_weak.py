@@ -852,7 +852,7 @@ class ATeacherTrainer(DefaultTrainer):
 
     @torch.no_grad()
     def _copy_main_model(self):
-        print("Copyyyy " * 10)
+
         # initialize all parameters
         if comm.get_world_size() > 1:
             rename_model_dict = {

@@ -92,6 +92,8 @@ def load_cityscapes_instances(image_dir, gt_dir, from_json=True, to_polygons=Tru
     for dict_per_image in ret:
         for anno in dict_per_image["annotations"]:
             anno["category_id"] = dataset_id_to_contiguous_id[anno["category_id"]]
+
+    pool.close()
     return ret
 
 
