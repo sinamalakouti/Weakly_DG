@@ -7,9 +7,9 @@ from detectron2.config import get_cfg
 from detectron2.engine import default_argument_parser, default_setup, launch
 
 from adapteacher import add_ateacher_config
-# from adapteacher.engine.trainer import ATeacherTrainer, BaselineTrainer
-# from adapteacher.engine.trainer import  BaselineTrainer
-from adapteacher.engine.trainer_weak import ATeacherTrainer, BaselineTrainer
+from adapteacher.engine.trainer2 import ATeacherTrainer, BaselineTrainer
+# from adapteacher.engine.trainer_weak import ATeacherTrainer, BaselineTrainer
+
 # hacky way to register
 from adapteacher.modeling.meta_arch.rcnn import \
     DGobjGeneralizedRCNN  # TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
@@ -72,7 +72,7 @@ def main(args, wandb_run=None):
             res = Trainer.test(cfg, model)
         return res
 
-    trainer = Trainer(cfg, wandb_run)
+    trainer = Trainer(cfg)
     trainer.resume_or_load(resume=args.resume)
 
     return trainer.train()
@@ -81,7 +81,10 @@ def main(args, wandb_run=None):
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
     wandb_run = None
-    wandb_run = wandb.init(project="WSOD_DG_v3_MIL")
+    print("HERE * 100")
+    print(args.machine_rank)
+    # wandb_run = wandb.init(project="WSOD_DG_v3_MIL")
+
     print("Command Line Args:", args)
     launch(
         main,
@@ -89,5 +92,5 @@ if __name__ == "__main__":
         num_machines=args.num_machines,
         machine_rank=args.machine_rank,
         dist_url=args.dist_url,
-        args=(args,wandb_run),
+        args=(args,),
     )
