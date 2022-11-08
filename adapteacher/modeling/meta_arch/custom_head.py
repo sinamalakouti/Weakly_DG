@@ -57,7 +57,7 @@ class Custom_head(nn.Module):
 
         self.roi_heads = build_roi_heads(cfg, backbone_output_shape)
         if weak_head:
-            self.roi_heads.build_region_head(1024, 6)
+            self.roi_heads.build_region_head(1024, 20)
 
     def forward(
             self, features, images, gt_instances, branch="supervised", given_proposals=None, val_mode=False
