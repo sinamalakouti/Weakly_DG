@@ -55,7 +55,7 @@ def main(args, wandb_run=None):
     # args.eval_only = True
     if args.eval_only:
         if cfg.SEMISUPNET.Trainer == "ateacher":
-            model = Trainer.build_model(cfg)
+            model = Trainer.build_model(cfg,wandb_run)
             model_teacher = Trainer.build_model(cfg)
             ensem_ts_model = EnsembleTSModel(model_teacher, model)
 
