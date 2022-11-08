@@ -29,12 +29,12 @@ def setup(args):
     """
     cfg = get_cfg()
     add_ateacher_config(cfg)
-    args.config_file = 'configs/faster_rcnn_VGG_cross_city.yaml'
+    # args.config_file = 'configs/faster_rcnn_VGG_cross_city.yaml'
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()
     default_setup(cfg, args)
-    cfg['config'] = 'configs/faster_rcnn_VGG_cross_city.yaml'
+    # cfg['config'] = 'configs/faster_rcnn_VGG_cross_city.yaml'
     cfg['num-gpus'] = 4
     cfg['OUTPUT_DIR'] = 'output/exp_city'
     return cfg
