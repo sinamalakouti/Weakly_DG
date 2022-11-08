@@ -2,6 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 
 import detectron2.utils.comm as comm
+import torch.cuda
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import get_cfg
 from detectron2.engine import default_argument_parser, default_setup, launch
@@ -29,14 +30,17 @@ def setup(args):
     """
     cfg = get_cfg()
     add_ateacher_config(cfg)
-    args.config_file = 'configs/faster_rcnn_VGG_cross_city.yaml'
+    if not torch.cuda.is_available():
+        args.config_file = 'configs/faster_rcnn_VGG_cross_city.yaml'
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()
     default_setup(cfg, args)
-    cfg['config'] = 'configs/faster_rcnn_VGG_cross_city.yaml'
+    if not torch.cuda.is_available():
+        cfg['config'] = 'configs/faster_rcnn_VGG_cross_city.yaml'
     cfg['num-gpus'] = 4
-    cfg['OUTPUT_DIR'] = 'output/exp_city'
+    if not torch.cuda.is_available():
+        cfg['OUTPUT_DIR'] = 'output/exp_city'
     return cfg
 
 
