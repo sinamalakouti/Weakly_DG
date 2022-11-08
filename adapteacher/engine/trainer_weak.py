@@ -553,7 +553,7 @@ class ATeacherTrainer(DefaultTrainer):
             elif (
                     self.iter - self.cfg.SEMISUPNET.BURN_UP_STEP
             ) % self.cfg.SEMISUPNET.TEACHER_UPDATE_ITER == 0:
-                None
+
                 self._update_teacher_model(
                     keep_rate=self.cfg.SEMISUPNET.EMA_KEEP_RATE)
 

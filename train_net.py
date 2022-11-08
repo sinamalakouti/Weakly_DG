@@ -7,8 +7,8 @@ from detectron2.config import get_cfg
 from detectron2.engine import default_argument_parser, default_setup, launch
 
 from adapteacher import add_ateacher_config
-from adapteacher.engine.trainer2 import ATeacherTrainer, BaselineTrainer
-# from adapteacher.engine.trainer_weak import ATeacherTrainer, BaselineTrainer
+# from adapteacher.engine.trainer2 import ATeacherTrainer, BaselineTrainer
+from adapteacher.engine.trainer_weak import ATeacherTrainer, BaselineTrainer
 
 # hacky way to register
 from adapteacher.modeling.meta_arch.rcnn import \
