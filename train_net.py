@@ -29,12 +29,12 @@ def setup(args):
     """
     cfg = get_cfg()
     add_ateacher_config(cfg)
-    # args.config_file = 'configs/faster_rcnn_VGG_cross_city.yaml'
+    args.config_file = 'configs/faster_rcnn_VGG_cross_city.yaml'
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()
     default_setup(cfg, args)
-    # cfg['config'] = 'configs/faster_rcnn_VGG_cross_city.yaml'
+    cfg['config'] = 'configs/faster_rcnn_VGG_cross_city.yaml'
     cfg['num-gpus'] = 4
     cfg['OUTPUT_DIR'] = 'output/exp_city'
     return cfg
@@ -55,7 +55,7 @@ def main(args, wandb_run=None):
     # args.eval_only = True
     if args.eval_only:
         if cfg.SEMISUPNET.Trainer == "ateacher":
-            model = Trainer.build_model(cfg,wandb_run)
+            model = Trainer.build_model(cfg)
             model_teacher = Trainer.build_model(cfg)
             ensem_ts_model = EnsembleTSModel(model_teacher, model)
 
@@ -72,7 +72,7 @@ def main(args, wandb_run=None):
             res = Trainer.test(cfg, model)
         return res
 
-    trainer = Trainer(cfg)
+    trainer = Trainer(cfg, wandb_run)
     trainer.resume_or_load(resume=args.resume)
 
     return trainer.train()
