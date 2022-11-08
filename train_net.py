@@ -83,7 +83,7 @@ if __name__ == "__main__":
     wandb_run = None
     print("HERE * 100")
     print(args.machine_rank)
-    # wandb_run = wandb.init(project="WSOD_DG_v3_MIL")
+    wandb_run = wandb.init(project="WSOD_DG_v3_MIL")
 
     print("Command Line Args:", args)
     launch(
@@ -92,5 +92,5 @@ if __name__ == "__main__":
         num_machines=args.num_machines,
         machine_rank=args.machine_rank,
         dist_url=args.dist_url,
-        args=(args,),
+        args=(args, wandb_run),
     )
