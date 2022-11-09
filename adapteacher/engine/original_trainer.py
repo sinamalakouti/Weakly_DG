@@ -28,10 +28,10 @@ from adapteacher.data.build2 import (
     build_detection_test_loader,
     build_detection_semisup_train_loader_two_crops,
 )
-from adapteacher.data.dataset_mapper import DatasetMapperTwoCropSeparate
+from adapteacher.data.dataset_mapper2 import DatasetMapperTwoCropSeparate
 from adapteacher.engine.hooks import LossEvalHook
 from adapteacher.modeling.meta_arch.orginal_ts_ensemble import EnsembleTSModel
-from adapteacher.checkpoint.detection_checkpoint import DetectionTSCheckpointer
+from adapteacher.checkpoint.detection_checkpoint2 import DetectionTSCheckpointer
 from adapteacher.solver.build import build_lr_scheduler
 from adapteacher.evaluation import PascalVOCDetectionEvaluator, COCOEvaluator
 
