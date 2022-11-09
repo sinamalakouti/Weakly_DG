@@ -9,16 +9,21 @@ from detectron2.engine import default_argument_parser, default_setup, launch
 
 from adapteacher import add_ateacher_config
 # from adapteacher.engine.trainer2 import ATeacherTrainer, BaselineTrainer
-from adapteacher.engine.trainer_weak import ATeacherTrainer, BaselineTrainer
+# from adapteacher.engine.trainer_weak import ATeacherTrainer, BaselineTrainer
 
 # hacky way to register
-from adapteacher.modeling.meta_arch.rcnn import \
-    DGobjGeneralizedRCNN  # TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
+# from adapteacher.modeling.meta_arch.rcnn import \
+#     DGobjGeneralizedRCNN  # TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
 from adapteacher.modeling.meta_arch.vgg import build_vgg_backbone  # noqa
 from adapteacher.modeling.proposal_generator.rpn import PseudoLabRPN
 from adapteacher.modeling.roi_heads.roi_heads import StandardROIHeadsPseudoLab
-from adapteacher.modeling.roi_heads.roi_heads_wsddn import WSDDNROIHeads
+# from adapteacher.modeling.roi_heads.roi_heads_wsddn import WSDDNROIHeads
 import adapteacher.data.datasets.builtin
+
+from adapteacher.engine.original_trainer import ATeacherTrainer, BaselineTrainer
+from adapteacher.modeling.meta_arch.orginal_ts_ensemble import EnsembleTSModel
+from adapteacher.modeling.meta_arch.original_rcnn import TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
+####
 
 from adapteacher.modeling.meta_arch.ts_ensemble import EnsembleTSModel
 import wandb
@@ -76,7 +81,7 @@ def main(args, wandb_run=None):
             res = Trainer.test(cfg, model)
         return res
 
-    trainer = Trainer(cfg, wandb_run)
+    trainer = Trainer(cfg)
     trainer.resume_or_load(resume=args.resume)
 
     return trainer.train()
