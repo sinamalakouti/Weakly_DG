@@ -485,6 +485,8 @@ class ATeacherTrainer(DefaultTrainer):
         return list_instances, num_proposal_output
 
     def remove_label(self, label_data):
+        import copy
+        label_data = copy.deepcopy(label_data)
         for label_datum in label_data:
             if "instances" in label_datum.keys():
                 del label_datum["instances"]
