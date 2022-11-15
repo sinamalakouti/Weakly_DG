@@ -311,9 +311,9 @@ class ATeacherTrainer(DefaultTrainer):
             model = DistributedDataParallel(
                 model, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
             s_f = DistributedDataParallel(
-                s_f, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=False)
+                s_f, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
             s_w = DistributedDataParallel(
-                s_w, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=False)
+                s_w, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
         self.s_f = s_f
         self.s_w = s_w
         ensemmbl_ts_model = DG_model(model, self.s_f, self.s_w)
