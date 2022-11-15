@@ -378,13 +378,13 @@ class WeakFastRCNNOutputLayers(nn.Module):
         if "mil" not in branch:
             proposal_deltas = self.bbox_pred(x)
         else:
-            with torch.no_grad():
-                proposal_deltas = self.bbox_pred(x)
+            # with torch.no_grad():
+            proposal_deltas = self.bbox_pred(x)
         if "mil" in branch:
             weak_scores = self.weak_score(x)
         else:
-            with torch.no_grad():
-                weak_scores = self.weak_score(x)
+            # with torch.no_grad():
+            weak_scores = self.weak_score(x)
         return scores, proposal_deltas, weak_scores
 
     def predict_probs_img(self, pred_class_logits, pred_det_logits, num_preds_per_image):
