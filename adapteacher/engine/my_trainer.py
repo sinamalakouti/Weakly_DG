@@ -563,7 +563,7 @@ class ATeacherTrainer(DefaultTrainer):
             )
             new_record_all_unlabel_data = {}
             for key in record_all_unlabel_data.keys():
-                    new_record_all_unlabel_data[key + 'weak'] = record_all_unlabel_data[
+                    new_record_all_unlabel_data[key + '_weak'] = record_all_unlabel_data[
                         key
                     ]
             record_dict.update(new_record_all_unlabel_data)

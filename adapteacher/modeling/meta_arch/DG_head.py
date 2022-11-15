@@ -55,7 +55,7 @@ class DG_head(nn.Module):
         self.roi_heads = build_roi_heads(cfg, backbone_output_shape)
 
     def forward(
-            self, features, images, gt_instances, branch="supervised", given_proposals=None, val_mode=False
+            self, features, images, gt_instances, branch="supervised"
     ):
 
 
