@@ -726,14 +726,16 @@ class ATeacherTrainer(DefaultTrainer):
             box_features_w, proposals_w = self.s_w(features_w_k, images_w_k, gt_instances_w_k, branch='head_features')
             box_features_f, proposals_f = self.s_f(features_s_k, images_s_k, gt_instances_s_k, branch='head_features')
 
-            record_unlabeled_episodic, _ = self.s_f.roi_heads.forward_box_predictor(
-                box_features_w,
-                proposals_w,
-                gt_instances_w_k,
-                compute_loss=True,
-                compute_val_loss=False,
-                branch="mil"
-            )
+            if comm.get_world_size() > 1:
+
+                record_unlabeled_episodic, _ = self.s_f.module.roi_heads.forward_box_predictor(
+                    box_features_w,
+                    proposals_w,
+                    gt_instances_w_k,
+                    compute_loss=True,
+                    compute_val_loss=False,
+                    branch="mil"
+                )
 
             record_unlabeled_episodic['loss_box_reg'] = record_unlabeled_episodic['loss_box_reg'] * 0
             record_unlabeled_episodic['loss_cls'] = record_unlabeled_episodic['loss_cls'] * 0
@@ -745,15 +747,16 @@ class ATeacherTrainer(DefaultTrainer):
                 ]
 
 
+            if comm.get_world_size() > 1:
 
-            record_labeled_episodic, _ = self.s_w.roi_heads.forward_box_predictor(
-                box_features_f,
-                proposals_f,
-                gt_instances_s_k,
-                compute_loss=True,
-                compute_val_loss=False,
-                branch="mil"
-            )
+                record_labeled_episodic, _ = self.s_w.module.roi_heads.forward_box_predictor(
+                    box_features_f,
+                    proposals_f,
+                    gt_instances_s_k,
+                    compute_loss=True,
+                    compute_val_loss=False,
+                    branch="mil"
+                )
 
             record_labeled_episodic['loss_box_reg'] = record_labeled_episodic['loss_box_reg'] * 0
             record_labeled_episodic['loss_cls'] = record_labeled_episodic['loss_cls'] * 0
