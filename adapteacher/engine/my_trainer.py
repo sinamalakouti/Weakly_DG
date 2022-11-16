@@ -533,7 +533,7 @@ class ATeacherTrainer(DefaultTrainer):
         if self.iter < self.cfg.SEMISUPNET.BURN_UP_STEP:
             label_data_q.extend(label_data_k)
             record_dict, _, _, _ = self.model(
-                label_data_q, branch="supervised")
+                label_data_q2, branch="supervised")
 
             # weight losses
             loss_dict = {}
