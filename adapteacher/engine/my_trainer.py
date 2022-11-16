@@ -316,8 +316,9 @@ class ATeacherTrainer(DefaultTrainer):
                 s_w, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True)
         self.s_f = s_f
         self.s_w = s_w
-        ensemmbl_ts_model = DG_model(model, self.s_f, self.s_w)
-        optimizer = self.build_optimizer(cfg, ensemmbl_ts_model)
+        ensembl_ts_model = DG_model(model, self.s_f, self.s_w)
+        optimizer = self.build_optimizer(cfg, model)
+        # optimizer = self.build_optimizer(cfg, ensembl_ts_model)
         TrainerBase.__init__(self)
         self._trainer = (AMPTrainer if cfg.SOLVER.AMP.ENABLED else SimpleTrainer)(
             model, data_loader, optimizer
@@ -420,8 +421,8 @@ class ATeacherTrainer(DefaultTrainer):
                     self.run_step_full_semisup()
                     self.after_step()
 
-                    if self.iter % 500 == 0:
-                        self.checkpointer.save("model_{}.pt".format(self.iter))
+                    # if self.iter % 500 == 0:
+                    #     self.checkpointer.save("model_{}.pt".format(self.iter))
             except Exception:
                 logger.exception("Exception during training:")
                 raise
@@ -530,9 +531,9 @@ class ATeacherTrainer(DefaultTrainer):
 
         # burn-in stage (supervised training with labeled data)
         if self.iter < self.cfg.SEMISUPNET.BURN_UP_STEP:
-
+            label_data_q.extend(label_data_k)
             record_dict, _, _, _ = self.model(
-                label_data_k, branch="supervised")
+                label_data_q, branch="supervised")
 
             # weight losses
             loss_dict = {}
