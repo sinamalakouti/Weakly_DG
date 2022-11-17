@@ -317,8 +317,8 @@ class ATeacherTrainer(DefaultTrainer):
         self.s_f = s_f
         self.s_w = s_w
         ensembl_ts_model = DG_model(model, self.s_f, self.s_w)
-        optimizer = self.build_optimizer(cfg, model)
-        # optimizer = self.build_optimizer(cfg, ensembl_ts_model)
+        # optimizer = self.build_optimizer(cfg, model)
+        optimizer = self.build_optimizer(cfg, ensembl_ts_model)
         TrainerBase.__init__(self)
         self._trainer = (AMPTrainer if cfg.SOLVER.AMP.ENABLED else SimpleTrainer)(
             model, data_loader, optimizer
