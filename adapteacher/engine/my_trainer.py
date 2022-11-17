@@ -719,68 +719,68 @@ class ATeacherTrainer(DefaultTrainer):
         losses.backward()
         self.optimizer.step()
 
-        if self.iter > self.cfg.SEMISUPNET.BURN_UP_STEP + 1000:
-            label_data_q, label_data_k, unlabel_data_q, unlabel_data_k = data
-            features_w_k, images_w_k, gt_instances_w_k = self.model(unlabel_data_k, branch='backbone')
-            features_s_k, images_s_k, gt_instances_s_k = self.model(label_data_k, branch='backbone')
-
-            box_features_w, proposals_w = self.s_w(features_w_k, images_w_k, gt_instances_w_k, branch='head_features')
-            box_features_f, proposals_f = self.s_f(features_s_k, images_s_k, gt_instances_s_k, branch='head_features')
-
-            if comm.get_world_size() > 1:
-
-                record_unlabeled_episodic, _ = self.s_f.module.roi_heads.forward_box_predictor(
-                    box_features_w,
-                    proposals_w,
-                    gt_instances_w_k,
-                    compute_loss=True,
-                    compute_val_loss=False,
-                    branch="mil"
-                )
-
-            record_unlabeled_episodic['loss_box_reg'] = record_unlabeled_episodic['loss_box_reg'] * 0
-            record_unlabeled_episodic['loss_cls'] = record_unlabeled_episodic['loss_cls'] * 0
-
-            loss_dict = {}
-            for key in record_unlabeled_episodic.keys():
-                loss_dict[key + '_episodic_weak'] = record_unlabeled_episodic[
-                    key
-                ]
-
-
-            if comm.get_world_size() > 1:
-
-                record_labeled_episodic, _ = self.s_w.module.roi_heads.forward_box_predictor(
-                    box_features_f,
-                    proposals_f,
-                    gt_instances_s_k,
-                    compute_loss=True,
-                    compute_val_loss=False,
-                    branch="mil"
-                )
-
-            record_labeled_episodic['loss_box_reg'] = record_labeled_episodic['loss_box_reg'] * 0
-            record_labeled_episodic['loss_cls'] = record_labeled_episodic['loss_cls'] * 0
-
-            for key in record_labeled_episodic.keys():
-                loss_dict[key + '_episodic_labeled'] = record_labeled_episodic[
-                    key
-                ]
-
-            losses = sum(loss_dict.values())
-            with torch.no_grad():
-                metrics_dict = record_dict
-                wandb_logs_dict = metrics_dict.copy()
-                wandb_logs_dict['losses'] = losses
-                wandb_logs_dict['iter'] = self.iter
-                if self.wandb_run:
-                    self.wandb_run.log(wandb_logs_dict)
-                metrics_dict["data_time"] = data_time
-            self._write_metrics(metrics_dict)
-
-            self.optimizer.zero_grad()
-            losses.backward()
-            self.optimizer.step()
+            # if self.iter > self.cfg.SEMISUPNET.BURN_UP_STEP + 1000:
+            #     label_data_q, label_data_k, unlabel_data_q, unlabel_data_k = data
+            #     features_w_k, images_w_k, gt_instances_w_k = self.model(unlabel_data_k, branch='backbone')
+            #     features_s_k, images_s_k, gt_instances_s_k = self.model(label_data_k, branch='backbone')
+            #
+            #     box_features_w, proposals_w = self.s_w(features_w_k, images_w_k, gt_instances_w_k, branch='head_features')
+            #     box_features_f, proposals_f = self.s_f(features_s_k, images_s_k, gt_instances_s_k, branch='head_features')
+            #
+            #     if comm.get_world_size() > 1:
+            #
+            #         record_unlabeled_episodic, _ = self.s_f.module.roi_heads.forward_box_predictor(
+            #             box_features_w,
+            #             proposals_w,
+            #             gt_instances_w_k,
+            #             compute_loss=True,
+            #             compute_val_loss=False,
+            #             branch="mil"
+            #         )
+            #
+            #     record_unlabeled_episodic['loss_box_reg'] = record_unlabeled_episodic['loss_box_reg'] * 0
+            #     record_unlabeled_episodic['loss_cls'] = record_unlabeled_episodic['loss_cls'] * 0
+            #
+            #     loss_dict = {}
+            #     for key in record_unlabeled_episodic.keys():
+            #         loss_dict[key + '_episodic_weak'] = record_unlabeled_episodic[
+            #             key
+            #         ]
+            #
+            #
+            #     if comm.get_world_size() > 1:
+            #
+            #         record_labeled_episodic, _ = self.s_w.module.roi_heads.forward_box_predictor(
+            #             box_features_f,
+            #             proposals_f,
+            #             gt_instances_s_k,
+            #             compute_loss=True,
+            #             compute_val_loss=False,
+            #             branch="mil"
+            #         )
+            #
+            #     record_labeled_episodic['loss_box_reg'] = record_labeled_episodic['loss_box_reg'] * 0
+            #     record_labeled_episodic['loss_cls'] = record_labeled_episodic['loss_cls'] * 0
+            #
+            #     for key in record_labeled_episodic.keys():
+            #         loss_dict[key + '_episodic_labeled'] = record_labeled_episodic[
+            #             key
+            #         ]
+            #
+            #     losses = sum(loss_dict.values())
+            #     with torch.no_grad():
+            #         metrics_dict = record_dict
+            #         wandb_logs_dict = metrics_dict.copy()
+            #         wandb_logs_dict['losses'] = losses
+            #         wandb_logs_dict['iter'] = self.iter
+            #         if self.wandb_run:
+            #             self.wandb_run.log(wandb_logs_dict)
+            #         metrics_dict["data_time"] = data_time
+            #     self._write_metrics(metrics_dict)
+            #
+            #     self.optimizer.zero_grad()
+            #     losses.backward()
+            #     self.optimizer.step()
 
 
 
