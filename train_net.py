@@ -23,8 +23,8 @@ from adapteacher.modeling.meta_arch.rcnn import \
     DGobjGeneralizedRCNN  # TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
 from adapteacher.modeling.roi_heads.roi_heads import StandardROIHeadsPseudoLab, myHead
 from adapteacher.modeling.proposal_generator.rpn import PseudoLabRPN
-# from adapteacher.engine.trainer_weak import ATeacherTrainer, BaselineTrainer
-from adapteacher.engine.my_trainer import ATeacherTrainer, BaselineTrainer
+from adapteacher.engine.trainer_weak import ATeacherTrainer, BaselineTrainer
+# from adapteacher.engine.my_trainer import ATeacherTrainer, BaselineTrainer
 #### ORIGNAL PAPER
 
 #
