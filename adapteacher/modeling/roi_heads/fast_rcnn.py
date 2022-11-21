@@ -110,6 +110,7 @@ class FocalLoss(nn.Module):
         loss = (1 - p) ** self.gamma * CE
         return loss.sum()
 
+
 #
 # # TODO implement
 # class WeakFastRCNNOutputs:
@@ -326,9 +327,9 @@ class WeakFastRCNNOutputLayers(nn.Module):
         self.weak_score = nn.Linear(input_size, num_classes)
         nn.init.normal_(self.cls_score.weight, std=0.01)
         nn.init.normal_(self.bbox_pred.weight, std=0.001)
-        nn.init.normal_(self.cls_score.weight, std=0.01)
+        nn.init.normal_(self.weak_score.weight, std=0.01)
 
-        for l in [self.weak_score, self.bbox_pred, self.weak_score]:
+        for l in [self.cls_score, self.bbox_pred, self.weak_score]:
             nn.init.constant_(l.bias, 0)
 
         self.box2box_transform = box2box_transform
@@ -388,12 +389,11 @@ class WeakFastRCNNOutputLayers(nn.Module):
         return scores, proposal_deltas, weak_scores
 
     def predict_probs_img(self, pred_class_logits, pred_det_logits, num_preds_per_image):
-
-
+        cls_scores = F.softmax(pred_class_logits[:, :-1], dim=1)
         pred_class_img_logits = cat(
-            [ torch.sum(
-                F.softmax(cls_logit[:,:-1], dim=1) * F.softmax(det_logit, dim=0), dim=0, keepdim=True)
-                for cls_logit, det_logit in zip(pred_class_logits.split(num_preds_per_image, dim=0), pred_det_logits.split(num_preds_per_image, dim=0))
+            [torch.sum( cls * F.softmax(det_logit, dim=0), dim=0, keepdim=True)
+                for cls, det_logit in zip(cls_scores.split(num_preds_per_image, dim=0),
+                                                pred_det_logits.split(num_preds_per_image, dim=0))
             ],
             dim=0,
         )
@@ -410,20 +410,20 @@ class WeakFastRCNNOutputLayers(nn.Module):
         )
         return pred_class_img_logits
 
-    def binary_cross_entropy_loss(self, pred_class_img_logits, gt_classes_img_oh):
-        """
-        Compute the softmax cross entropy loss for box classification.
-        Returns:
-            scalar Tensor
-        """
-        self._log_accuracy()
-        assert pred_class_img_logits.shape == gt_classes_img_oh.shape, " {} != {}".format(
-            pred_class_img_logits, gt_classes_img_oh.shape)
-
-        reduction = "mean" if self.mean_loss else "sum"
-        return F.binary_cross_entropy(
-            self.predict_probs_img(), gt_classes_img_oh, reduction=reduction
-        ) / self.gt_classes_img_oh.size(0)
+    # def binary_cross_entropy_loss(self, pred_class_img_logits, gt_classes_img_oh):
+    #     """
+    #     Compute the softmax cross entropy loss for box classification.
+    #     Returns:
+    #         scalar Tensor
+    #     """
+    #     self._log_accuracy()
+    #     assert pred_class_img_logits.shape == gt_classes_img_oh.shape, " {} != {}".format(
+    #         pred_class_img_logits, gt_classes_img_oh.shape)
+    #
+    #     reduction = "mean" if self.mean_loss else "sum"
+    #     return F.binary_cross_entropy(
+    #         self.predict_probs_img(), gt_classes_img_oh, reduction=reduction
+    #     ) / self.gt_classes_img_oh.size(0)
 
     def losses(self, predictions, proposals, gt_classes_img_oh):
         """
@@ -462,20 +462,19 @@ class WeakFastRCNNOutputLayers(nn.Module):
         else:
             proposal_boxes = gt_boxes = torch.empty((0, 4), device=proposal_deltas.device)
 
+        pred_class_img_logits = self.predict_probs_img(scores, weak_scores, num_preds_per_image)
 
-       # pred_class_img_logits = self.predict_probs_img(scores, weak_scores, num_preds_per_image)
-
-        # img_cls_losses = F.binary_cross_entropy(
-        #     pred_class_img_logits,
-        #     gt_classes_img_oh,
-        #     reduction='mean'
-        # )
+        img_cls_losses = F.binary_cross_entropy(
+            pred_class_img_logits,
+            gt_classes_img_oh,
+            reduction='mean'
+        ) /gt_classes_img_oh.size(0)
         losses = {
             "loss_cls": cross_entropy(scores, gt_classes, reduction="mean"),
             "loss_box_reg": self.box_reg_loss(
                 proposal_boxes, gt_boxes, proposal_deltas, gt_classes
             ),
-            # "loss_mil": img_cls_losses
+            "loss_mil": img_cls_losses
         }
         return {k: v * self.loss_weight.get(k, 1.0) for k, v in losses.items()}
 

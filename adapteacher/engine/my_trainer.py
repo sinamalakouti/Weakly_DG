@@ -643,17 +643,17 @@ class ATeacherTrainer(DefaultTrainer):
                 all_unlabel_data = unlabel_data_q
 
             # 4. input both strongly and weakly augmented labeled data into student model
-            features_sf, images, gt_instances = self.model(all_label_data, branch='backbone')
+            features_sf, images_sf, gt_instances_sf = self.model(all_label_data, branch='backbone')
             record_all_label_data, _, _, _ = self.s_f(
-                features_sf, images, gt_instances, branch="supervised_all"
+                features_sf, images_sf, gt_instances_sf, branch="supervised_all"
             )
             record_dict.update(record_all_label_data)
 
             # 5. input strongly augmented unlabeled data into model
 
-            features_sw, images, gt_instances = self.model(all_unlabel_data, branch='backbone')
+            features_sw, images_sw, gt_instances_sw = self.model(all_unlabel_data, branch='backbone')
             record_all_unlabel_data, _, _, _ = self.s_w(
-                features_sw, images, gt_instances, branch="supervised_target"
+                features_sw, images_sw, gt_instances_sw, branch="supervised_target"
             )
             new_record_all_unlabel_data = {}
             for key in record_all_unlabel_data.keys():
@@ -691,8 +691,8 @@ class ATeacherTrainer(DefaultTrainer):
                         )
                     elif "mil" in key:
                         loss_dict[key] = (
-                                record_dict[key] *
-                                self.cfg.SEMISUPNET.UNSUP_LOSS_WEIGHT  # TODO
+                                record_dict[key] #*
+                                #self.cfg.SEMISUPNET.UNSUP_LOSS_WEIGHT  # TODO
                         )
                     elif (
                             key == "loss_D_img_s" or key == "loss_D_img_t"
