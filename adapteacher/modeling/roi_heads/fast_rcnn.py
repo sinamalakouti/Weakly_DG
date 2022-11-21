@@ -463,19 +463,19 @@ class WeakFastRCNNOutputLayers(nn.Module):
             proposal_boxes = gt_boxes = torch.empty((0, 4), device=proposal_deltas.device)
 
 
-        pred_class_img_logits = self.predict_probs_img(scores, weak_scores, num_preds_per_image)
+       # pred_class_img_logits = self.predict_probs_img(scores, weak_scores, num_preds_per_image)
 
-        img_cls_losses = F.binary_cross_entropy(
-            pred_class_img_logits,
-            gt_classes_img_oh,
-            reduction='mean'
-        )
+        # img_cls_losses = F.binary_cross_entropy(
+        #     pred_class_img_logits,
+        #     gt_classes_img_oh,
+        #     reduction='mean'
+        # )
         losses = {
             "loss_cls": cross_entropy(scores, gt_classes, reduction="mean"),
             "loss_box_reg": self.box_reg_loss(
                 proposal_boxes, gt_boxes, proposal_deltas, gt_classes
             ),
-            "loss_mil": img_cls_losses
+            # "loss_mil": img_cls_losses
         }
         return {k: v * self.loss_weight.get(k, 1.0) for k, v in losses.items()}
 

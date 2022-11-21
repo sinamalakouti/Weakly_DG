@@ -358,62 +358,7 @@ class StandardROIHeadsPseudoLab(StandardROIHeads):
 
 
 @ROI_HEADS_REGISTRY.register()
-class myHead(ROIHeads):
-
-    @configurable
-    def __init__(
-            self,
-            *,
-            box_in_features: List[str],
-            box_pooler: ROIPooler,
-            box_head: nn.Module,
-            box_predictor: nn.Module,
-            mask_in_features: Optional[List[str]] = None,
-            mask_pooler: Optional[ROIPooler] = None,
-            mask_head: Optional[nn.Module] = None,
-            keypoint_in_features: Optional[List[str]] = None,
-            keypoint_pooler: Optional[ROIPooler] = None,
-            keypoint_head: Optional[nn.Module] = None,
-            train_on_pred_boxes: bool = False,
-            **kwargs
-    ):
-        """
-        NOTE: this interface is experimental.
-        Args:
-            box_in_features (list[str]): list of feature names to use for the box head.
-            box_pooler (ROIPooler): pooler to extra region features for box head
-            box_head (nn.Module): transform features to make box predictions
-            box_predictor (nn.Module): make box predictions from the feature.
-                Should have the same interface as :class:`FastRCNNOutputLayers`.
-            mask_in_features (list[str]): list of feature names to use for the mask head.
-                None if not using mask head.
-            mask_pooler (ROIPooler): pooler to extra region features for mask head
-            mask_head (nn.Module): transform features to make mask predictions
-            keypoint_in_features, keypoint_pooler, keypoint_head: similar to ``mask*``.
-            train_on_pred_boxes (bool): whether to use proposal boxes or
-                predicted boxes from the box head to train other heads.
-        """
-        super().__init__(**kwargs)
-        # keep self.in_features for backward compatibility
-        self.in_features = self.box_in_features = box_in_features
-        self.box_pooler = box_pooler
-        self.box_head = box_head
-        self.box_predictor = box_predictor
-
-        self.train_on_pred_boxes = train_on_pred_boxes
-
-    @classmethod
-    def from_config(cls, cfg, input_shape):
-        ret = super().from_config(cfg)
-        ret["train_on_pred_boxes"] = cfg.MODEL.ROI_BOX_HEAD.TRAIN_ON_PRED_BOXES
-        # Subclasses that have not been updated to use from_config style construction
-        # may have overridden _init_*_head methods. In this case, those overridden methods
-        # will not be classmethods and we need to avoid trying to call them here.
-        # We test for this with ismethod which only returns True for bound methods of cls.
-        # Such subclasses will need to handle calling their overridden _init_*_head methods.
-        if inspect.ismethod(cls._init_box_head):
-            ret.update(cls._init_box_head(cfg, input_shape))
-        return ret
+class myHead(StandardROIHeads):
 
     @classmethod
     def _init_box_head(cls, cfg, input_shape):
@@ -454,6 +399,8 @@ class myHead(ROIHeads):
         }
 
 
+
+
     def forward(
             self,
             images: ImageList,
@@ -469,8 +416,8 @@ class myHead(ROIHeads):
         self.gt_classes_img, self.gt_classes_img_int, self.gt_classes_img_oh = get_image_level_gt(
             targets, self.num_classes
         )
-        for param in self.box_predictor.parameters():
-            param.requires_grad = True
+        # for param in self.box_predictor.parameters():
+        #     param.requires_grad = True
         if self.training and compute_loss:  # apply if training loss
             assert targets
             # 1000 --> 512
@@ -494,10 +441,10 @@ class myHead(ROIHeads):
             )
 
             if "mil" in branch:
-                losses['loss_box_reg'] = losses['loss_box_reg'] * 0
-                losses['loss_cls'] = losses['loss_cls'] * 0
+                losses['loss_box_reg'] = losses['loss_box_reg'] * 0.001
+                losses['loss_cls'] = losses['loss_cls'] * 0.001
             elif branch != "supervised_all":
-                losses['loss_mil'] = losses['loss_mil'] * 0
+                losses['loss_mil'] = losses['loss_mil'] * 0.001
             return proposals, losses
         else:
             pred_instances, predictions = self._forward_box(
@@ -570,8 +517,6 @@ class myHead(ROIHeads):
             compute_val_loss: bool = False,
             branch: str = "",
     ) -> Union[Dict[str, torch.Tensor], List[Instances]]:
-
-
 
         features = [features[f] for f in self.box_in_features]
         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
@@ -654,4 +599,3 @@ class myHead(ROIHeads):
         )
 
         return proposals_with_gt
-
