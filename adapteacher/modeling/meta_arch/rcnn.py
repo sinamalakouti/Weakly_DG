@@ -331,7 +331,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
                 proposals_rpn,
                 compute_loss=True,
                 targets=gt_instances,
-                #                branch=branch, #TODO check this shit
+                branch=branch,
             )
 
             # visualization

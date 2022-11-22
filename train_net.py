@@ -23,8 +23,8 @@ from adapteacher.modeling.meta_arch.rcnn import \
     DGobjGeneralizedRCNN  # TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
 from adapteacher.modeling.roi_heads.roi_heads import StandardROIHeadsPseudoLab, myHead
 from adapteacher.modeling.proposal_generator.rpn import PseudoLabRPN
-from adapteacher.engine.trainer_weak import ATeacherTrainer, BaselineTrainer
-# from adapteacher.engine.my_trainer import ATeacherTrainer, BaselineTrainer
+# from adapteacher.engine.trainer_weak import ATeacherTrainer, BaselineTrainer
+from adapteacher.engine.my_trainer import ATeacherTrainer, BaselineTrainer
 #### ORIGNAL PAPER
 
 #
@@ -89,7 +89,7 @@ def main(args, wandb_run=None):
             res = Trainer.test(cfg, model)
         return res
 
-    trainer = Trainer(cfg)
+    trainer = Trainer(cfg, wandb_run)
     trainer.resume_or_load(resume=args.resume)
 
     return trainer.train()
