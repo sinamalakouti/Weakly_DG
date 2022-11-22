@@ -709,7 +709,7 @@ class ATeacherTrainer(DefaultTrainer):
         losses.backward()
         self.optimizer.step()
 
-        if self.iter > self.cfg.SEMISUPNET.BURN_UP_STEP + 2000:
+        if self.iter > self.cfg.SEMISUPNET.BURN_UP_STEP + 2000 or True:
             label_data_q, label_data_k, unlabel_data_q, unlabel_data_k = data
             features_w_k, images_w_k, gt_instances_w_k = self.model(unlabel_data_k, branch='backbone')
             features_s_k, images_s_k, gt_instances_s_k = self.model(label_data_k, branch='backbone')
@@ -756,7 +756,7 @@ class ATeacherTrainer(DefaultTrainer):
 
             losses = sum(loss_dict.values())
             with torch.no_grad():
-                metrics_dict = record_dict
+                metrics_dict = loss_dict
                 wandb_logs_dict = metrics_dict.copy()
                 wandb_logs_dict['losses'] = losses
                 wandb_logs_dict['iter'] = self.iter
