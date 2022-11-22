@@ -1,46 +1,41 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+import copy
+import logging
 import os
 import time
-import logging
-import torch
-import wandb
-from torch.nn import Parameter
-from torch.nn.parallel import DistributedDataParallel
-from fvcore.nn.precise_bn import get_bn_modules
-import numpy as np
 from collections import OrderedDict
 
 import detectron2.utils.comm as comm
+import numpy as np
+import torch
 from detectron2.checkpoint import DetectionCheckpointer
+from detectron2.data import MetadataCatalog
 from detectron2.engine import DefaultTrainer, SimpleTrainer, TrainerBase
-from detectron2.engine.train_loop import AMPTrainer
-from detectron2.utils.events import EventStorage
-from detectron2.evaluation import verify_results, DatasetEvaluators
-# from detectron2.evaluation import COCOEvaluator, verify_results, DatasetEvaluators
-
-from detectron2.data.dataset_mapper import DatasetMapper
 from detectron2.engine import hooks
+from detectron2.engine.train_loop import AMPTrainer
+from detectron2.evaluation import verify_results, DatasetEvaluators
 from detectron2.structures.boxes import Boxes
 from detectron2.structures.instances import Instances
 from detectron2.utils.env import TORCH_VERSION
-from detectron2.data import MetadataCatalog
+from detectron2.utils.events import EventStorage
+from fvcore.nn.precise_bn import get_bn_modules
+from torch.nn.parallel import DistributedDataParallel
 
+from adapteacher.checkpoint.detection_checkpoint import DetectionTSCheckpointer
 from adapteacher.data.build2 import (
     build_detection_semisup_train_loader,
     build_detection_test_loader,
     build_detection_semisup_train_loader_two_crops,
 )
 from adapteacher.data.dataset_mapper import DatasetMapperTwoCropSeparate
-from adapteacher.engine.hooks import LossEvalHook
-from adapteacher.modeling.meta_arch.DG_model import DG_model
-from adapteacher.checkpoint.detection_checkpoint import DetectionTSCheckpointer
-from adapteacher.solver.build import build_lr_scheduler
 from adapteacher.evaluation import PascalVOCDetectionEvaluator, COCOEvaluator
-
+from adapteacher.modeling.meta_arch.DG_model import DG_model
+from adapteacher.solver.build import build_lr_scheduler
 from .probe import OpenMatchTrainerProbe
-import copy
-
 from ..modeling.meta_arch.DG_head import DG_head
+
+
+# from detectron2.evaluation import COCOEvaluator, verify_results, DatasetEvaluators
 
 
 # Supervised-only Trainer
@@ -85,7 +80,7 @@ class BaselineTrainer(DefaultTrainer):
         """
         If `resume==True` and `cfg.OUTPUT_DIR` contains the last checkpoint (defined by
         a `last_checkpoint` file), resume from the file. Resuming means loading all
-        available states (eg. optimizer and scheduler) and update iteration counter
+        available states (e.g. optimizer and scheduler) and update iteration counter
         from the checkpoint. ``cfg.MODEL.WEIGHTS`` will not be used.
         Otherwise, this is considered as an independent training. The method will load model
         weights from the file `cfg.MODEL.WEIGHTS` (but will not load other states) and start
@@ -292,10 +287,10 @@ class ATeacherTrainer(DefaultTrainer):
         cfg = DefaultTrainer.auto_scale_workers(cfg, comm.get_world_size())
         data_loader = self.build_train_loader(cfg)
 
-        # create an student model
+        # create a student model
         model = self.build_model(cfg)
 
-        # create an teacher model
+        # create a teacher model
         s_f = DG_head(proposal_generator=None, roi_heads=None, cfg=cfg,
                       backbone_output_shape=model.backbone.output_shape(),
                       vis_period=0, weak_head=True).to(model.device)
@@ -342,7 +337,7 @@ class ATeacherTrainer(DefaultTrainer):
         """
         If `resume==True` and `cfg.OUTPUT_DIR` contains the last checkpoint (defined by
         a `last_checkpoint` file), resume from the file. Resuming means loading all
-        available states (eg. optimizer and scheduler) and update iteration counter
+        available states (e.g. optimizer and scheduler) and update iteration counter
         from the checkpoint. ``cfg.MODEL.WEIGHTS`` will not be used.
         Otherwise, this is considered as an independent training. The method will load model
         weights from the file `cfg.MODEL.WEIGHTS` (but will not load other states) and start
@@ -597,14 +592,14 @@ class ATeacherTrainer(DefaultTrainer):
                         proposals_rpn_unsup_k,
                         proposals_roih_unsup_k,
                         _
-                    ) = self.model.module.forward_head(features_w_weak, images)
+                    ) = self.model.module.forward_head(features_w_weak, images_ws)
                 else:
                     (
                         _,
                         proposals_rpn_unsup_k,
                         proposals_roih_unsup_k,
                         _
-                    ) = self.model.forward_head(features_w_weak, images)
+                    ) = self.model.forward_head(features_w_weak, images_ws)
 
                 #  2. Pseudo-labeling
                 cur_threshold = self.cfg.SEMISUPNET.BBOX_THRESHOLD
@@ -723,7 +718,6 @@ class ATeacherTrainer(DefaultTrainer):
             box_features_f, proposals_f = self.s_f(features_s_k, images_s_k, gt_instances_s_k, branch='head_features')
 
             if comm.get_world_size() > 1:
-
                 record_unlabeled_episodic, _ = self.s_f.module.roi_heads.forward_box_predictor(
                     box_features_w,
                     proposals_w,
@@ -742,9 +736,7 @@ class ATeacherTrainer(DefaultTrainer):
                     key
                 ]
 
-
             if comm.get_world_size() > 1:
-
                 record_labeled_episodic, _ = self.s_w.module.roi_heads.forward_box_predictor(
                     box_features_f,
                     proposals_f,
