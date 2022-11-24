@@ -416,8 +416,8 @@ class myHead(StandardROIHeads):
         self.gt_classes_img, self.gt_classes_img_int, self.gt_classes_img_oh = get_image_level_gt(
             targets, self.num_classes
         )
-        # for param in self.box_predictor.parameters():
-        #     param.requires_grad = True
+        for param in self.box_predictor.parameters():
+            param.requires_grad = True
         if self.training and compute_loss:  # apply if training loss
             assert targets
             # 1000 --> 512
@@ -481,11 +481,10 @@ class myHead(StandardROIHeads):
             compute_val_loss,
             branch
     ):
-        for param in self.box_predictor.parameters():
-            param.requires_grad = False
-            gt_classes_img, gt_classes_img_int, gt_classes_img_oh = get_image_level_gt(
-                targets, self.num_classes
-            )
+
+        gt_classes_img, gt_classes_img_int, gt_classes_img_oh = get_image_level_gt(
+            targets, self.num_classes
+        )
         predictions = self.box_predictor(box_features, branch)
         del box_features
 
@@ -503,6 +502,9 @@ class myHead(StandardROIHeads):
                             proposals, pred_boxes
                     ):
                         proposals_per_image.proposal_boxes = Boxes(pred_boxes_per_image)
+            for param in self.box_predictor.parameters():
+                param.requires_grad = False
+                param.grad = None
             return losses, predictions
         else:
 
