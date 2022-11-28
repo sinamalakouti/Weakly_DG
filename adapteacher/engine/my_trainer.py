@@ -721,7 +721,7 @@ class ATeacherTrainer(DefaultTrainer):
         losses.backward()
         self.optimizer.step()
 
-        if self.iter > self.cfg.SEMISUPNET.BURN_UP_STEP // 2:
+        if self.iter > self.cfg.SEMISUPNET.BURN_UP_STEP :
             label_data_q, label_data_k, unlabel_data_q, unlabel_data_k = data
             with torch.no_grad():
                 features_w_k, images_w_k, gt_instances_w_k = self.model(unlabel_data_k, branch='backbone')
