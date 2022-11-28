@@ -531,11 +531,22 @@ class ATeacherTrainer(DefaultTrainer):
             record_dict, _, _, _ = self.model(
                 label_data_q, branch="supervised")
 
+            features_w_weak, images_ws, gt_instances_ws = self.model(unlabel_data_q, branch='backbone')
+            record_all_unlabel_data, _, _, _ = self.s_w(
+                features_w_weak, images_ws, gt_instances_ws, branch="mil"
+            )
+
+
             # weight losses
             loss_dict = {}
             for key in record_dict.keys():
                 if key[:4] == "loss":
                     loss_dict[key] = record_dict[key] * 1
+
+            for key in record_all_unlabel_data.keys():
+                loss_dict[key + '_weak'] = record_all_unlabel_data[
+                    key
+                ] * 0.5
             losses = sum(loss_dict.values())
 
         else:
