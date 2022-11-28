@@ -715,12 +715,12 @@ class ATeacherTrainer(DefaultTrainer):
             with torch.no_grad():
                 features_w_k, images_w_k, gt_instances_w_k = self.model(unlabel_data_k, branch='backbone')
                 features_s_k, images_s_k, gt_instances_s_k = self.model(label_data_k, branch='backbone')
-                features_w_k = features_w_k.detach()
-                features_s_k = features_s_k.detach()
+                features_w_k = features_w_k
+                features_s_k = features_s_k
 
             box_features_w, proposals_w = self.s_w(features_w_k, images_w_k, gt_instances_w_k, branch='head_features')
             box_features_f, proposals_f = self.s_f(features_s_k, images_s_k, gt_instances_s_k, branch='head_features')
-
+    
             if comm.get_world_size() > 1:
                 record_unlabeled_episodic, _ = self.s_f.module.roi_heads.forward_box_predictor(
                     box_features_w,
