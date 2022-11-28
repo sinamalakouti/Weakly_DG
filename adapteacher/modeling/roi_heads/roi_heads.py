@@ -504,7 +504,7 @@ class myHead(StandardROIHeads):
                         proposals_per_image.proposal_boxes = Boxes(pred_boxes_per_image)
             for param in self.box_predictor.parameters():
                 param.requires_grad = False
-                param.grad = None
+                # param.grad = None
             return losses, predictions
         else:
 
