@@ -359,7 +359,7 @@ class WeakFastRCNNOutputLayers(nn.Module):
             # fmt: on
         }
 
-    def forward(self, x, branch):
+    def forward(self, x, branch=None):
         """
         Args:
             x: per-region features of shape (N, ...) for N bounding boxes to predict.
@@ -376,38 +376,21 @@ class WeakFastRCNNOutputLayers(nn.Module):
         if x.dim() > 2:
             x = torch.flatten(x, start_dim=1)
         scores = self.cls_score(x)
-        if "mil" not in branch:
-            proposal_deltas = self.bbox_pred(x)
-        else:
-            # with torch.no_grad():
-            proposal_deltas = self.bbox_pred(x)
-        if "mil" in branch:
-            weak_scores = self.weak_score(x)
-        else:
-            # with torch.no_grad():
-            weak_scores = self.weak_score(x)
+        proposal_deltas = self.bbox_pred(x)
+        weak_scores = self.weak_score(x)
         return scores, proposal_deltas, weak_scores
 
     def predict_probs_img(self, pred_class_logits, pred_det_logits, num_preds_per_image):
         cls_scores = F.softmax(pred_class_logits[:, :-1], dim=1)
         pred_class_img_logits = cat(
-            [torch.sum( cls * F.softmax(det_logit, dim=0), dim=0, keepdim=True)
-                for cls, det_logit in zip(cls_scores.split(num_preds_per_image, dim=0),
-                                                pred_det_logits.split(num_preds_per_image, dim=0))
-            ],
+            [torch.sum(cls * F.softmax(det_logit, dim=0), dim=0, keepdim=True)
+             for cls, det_logit in zip(cls_scores.split(num_preds_per_image, dim=0),
+                                       pred_det_logits.split(num_preds_per_image, dim=0))
+             ],
             dim=0,
         )
 
-        # pred_class_img_logits = cat(
-        #     [
-        #         torch.sum(xx, dim=0, keepdim=True)
-        #         for xx in pred_class_logits.split(num_preds_per_image, dim=0)
-        #     ],
-        #     dim=0,
-        # )
-        pred_class_img_logits = torch.clamp(
-            pred_class_img_logits, min=1e-6, max=1.0 - 1e-6
-        )
+        pred_class_img_logits = torch.clamp(pred_class_img_logits, min=1e-6, max=1.0 - 1e-6)
         return pred_class_img_logits
 
     # def binary_cross_entropy_loss(self, pred_class_img_logits, gt_classes_img_oh):
@@ -468,7 +451,7 @@ class WeakFastRCNNOutputLayers(nn.Module):
             pred_class_img_logits,
             gt_classes_img_oh,
             reduction='mean'
-        ) /gt_classes_img_oh.size(0)
+        ) / gt_classes_img_oh.size(0)
         losses = {
             "loss_cls": cross_entropy(scores, gt_classes, reduction="mean"),
             "loss_box_reg": self.box_reg_loss(

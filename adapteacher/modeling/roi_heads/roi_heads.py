@@ -398,9 +398,6 @@ class myHead(StandardROIHeads):
 
         }
 
-
-
-
     def forward(
             self,
             images: ImageList,
@@ -441,10 +438,11 @@ class myHead(StandardROIHeads):
             )
 
             if "mil" in branch:
-                losses['loss_box_reg'] = losses['loss_box_reg'] * 0.001
-                losses['loss_cls'] = losses['loss_cls'] * 0.001
-            elif branch != "supervised_all":
-                losses['loss_mil'] = losses['loss_mil'] * 0.001
+                losses['loss_box_reg'] = losses['loss_box_reg'] * 0.0
+                losses['loss_cls'] = losses['loss_cls'] * 0.0
+
+            elif "supervised_only" in branch:
+                losses['loss_mil'] = losses['loss_mil'] * 0.0
             return proposals, losses
         else:
             pred_instances, predictions = self._forward_box(

@@ -19,12 +19,23 @@ from adapteacher.modeling.meta_arch.vgg import build_vgg_backbone  # noqa
 import adapteacher.data.datasets.builtin
 #### MY IMPORTS
 
-from adapteacher.modeling.meta_arch.rcnn import \
+# from adapteacher.modeling.meta_arch.rcnn import \
+#     DGobjGeneralizedRCNN  # TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
+
+from adapteacher.modeling.meta_arch.rcnn_MT import \
     DGobjGeneralizedRCNN  # TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
+
 from adapteacher.modeling.roi_heads.roi_heads import StandardROIHeadsPseudoLab, myHead
 from adapteacher.modeling.proposal_generator.rpn import PseudoLabRPN
 # from adapteacher.engine.trainer_weak import ATeacherTrainer, BaselineTrainer
-from adapteacher.engine.my_trainer import ATeacherTrainer, BaselineTrainer
+# from adapteacher.engine.my_trainer import ATeacherTrainer, BaselineTrainer
+
+
+###### MT MODEL
+from adapteacher.modeling.roi_heads.roi_heads import StandardROIHeadsPseudoLab, myHead
+from adapteacher.modeling.meta_arch.rcnn_MT import \
+    DGobjGeneralizedRCNN  # TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
+from adapteacher.engine.trainer_MT import ATeacherTrainer, BaselineTrainer
 #### ORIGNAL PAPER
 
 #
@@ -89,7 +100,7 @@ def main(args, wandb_run=None):
             res = Trainer.test(cfg, model)
         return res
 
-    trainer = Trainer(cfg, wandb_run)
+    trainer = Trainer(cfg)
     trainer.resume_or_load(resume=args.resume)
 
     return trainer.train()
