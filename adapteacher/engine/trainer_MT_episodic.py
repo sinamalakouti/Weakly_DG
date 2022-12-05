@@ -718,11 +718,11 @@ class ATeacherTrainer(DefaultTrainer):
             losses = sum(loss_dict.values())
             with torch.no_grad():
                 metrics_dict = loss_dict
-                wandb_logs_dict = metrics_dict.copy()
-                wandb_logs_dict['losses'] = losses
-                wandb_logs_dict['iter'] = self.iter
-                if self.wandb_run:
-                    self.wandb_run.log(wandb_logs_dict)
+                # wandb_logs_dict = metrics_dict.copy()
+                # wandb_logs_dict['losses'] = losses
+                # wandb_logs_dict['iter'] = self.iter
+                # if self.wandb_run:
+                #     self.wandb_run.log(wandb_logs_dict)
                 metrics_dict["data_time"] = data_time
             self._write_metrics(metrics_dict)
 
