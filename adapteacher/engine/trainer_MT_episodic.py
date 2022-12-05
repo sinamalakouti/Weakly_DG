@@ -528,7 +528,7 @@ class ATeacherTrainer(DefaultTrainer):
 
             for key in record_dict.keys():
                 if key[:4] == "loss":
-                    loss_dict[key +"_wsod"] = record_dict[key] * 1
+                    loss_dict[key + "_wsod"] = record_dict[key] * 1
 
             for i_index in range(len(unlabel_data_k)):
                 # unlabel_data_item = {}
@@ -547,7 +547,7 @@ class ATeacherTrainer(DefaultTrainer):
                         key == "loss_D_img_s" or key == "loss_D_img_t"
                 ):  # set weight for discriminator
                     loss_dict[key] = loss_dict[
-                                     key] * self.cfg.SEMISUPNET.DIS_LOSS_WEIGHT * 0.1
+                                         key] * self.cfg.SEMISUPNET.DIS_LOSS_WEIGHT * 0.1
                 elif key[:4] == "loss":
                     loss_dict[key] = loss_dict[key] * 1
             record_dict = loss_dict
@@ -575,7 +575,7 @@ class ATeacherTrainer(DefaultTrainer):
                 unlabel_data_k + unlabel_data_q, branch="mil_wsod"
             )
             for key in record_all_weak_data.keys():
-                record_dict[key +"_wsod"] = record_all_weak_data[key]
+                record_dict[key + "_wsod"] = record_all_weak_data[key]
             #  0. remove unlabeled data labels
             unlabel_data_q = self.remove_label(unlabel_data_q)
             unlabel_data_k = self.remove_label(unlabel_data_k)
@@ -696,6 +696,40 @@ class ATeacherTrainer(DefaultTrainer):
         losses.backward()
         self.optimizer.step()
 
+        if self.iter > self.cfg.SEMISUPNET.BURN_UP_STEP // 2:
+            _, label_data_k, _, unlabel_data_k = data
+            loss_dict = {}
+            record_dict, _, _, _ = self.model(
+                unlabel_data_k, branch="episodic_wsod"
+            )
+            for key in record_dict.keys():
+                loss_dict[key + '_episodic_wsod'] = record_dict[
+                    key
+                ]
+
+            record_dict_fsod, _, _, _ = self.model(
+                label_data_k, branch="episodic_fsod"
+            )
+            record_dict.update(record_dict_fsod)
+            for key in record_dict.keys():
+                loss_dict[key + '_episodic_fsod'] = record_dict_fsod[
+                    key
+                ]
+            losses = sum(loss_dict.values())
+            with torch.no_grad():
+                metrics_dict = loss_dict
+                wandb_logs_dict = metrics_dict.copy()
+                wandb_logs_dict['losses'] = losses
+                wandb_logs_dict['iter'] = self.iter
+                if self.wandb_run:
+                    self.wandb_run.log(wandb_logs_dict)
+                metrics_dict["data_time"] = data_time
+            self._write_metrics(metrics_dict)
+
+            self.optimizer.zero_grad()
+            losses.backward()
+            self.optimizer.step()
+
     def _write_metrics(self, metrics_dict: dict):
         metrics_dict = {
             k: v.detach().cpu().item() if isinstance(v, torch.Tensor) else float(v)
@@ -746,28 +780,27 @@ class ATeacherTrainer(DefaultTrainer):
         new_teacher_dict = OrderedDict()
         for key, value in self.model_teacher.state_dict().items():
 
-
-
             if key in student_model_dict.keys():
                 if 'cls_score_fsod' in key:
                     new_teacher_dict[key] = (
-                            (student_model_dict[key] + 0.5 * student_model_dict[key.replace('cls_score_fsod', 'cls_score_wsod')]) *
+                            (student_model_dict[key] + 0.5 * student_model_dict[
+                                key.replace('cls_score_fsod', 'cls_score_wsod')]) *
                             (1 - keep_rate) + value * keep_rate
                     )
                 elif 'weak_score_fsod' in key:
                     new_teacher_dict[key] = (
-                            (student_model_dict[key] + 0.5 * student_model_dict[key.replace('weak_score_fsod', 'weak_score_wsod')]) *
-                            (1 - keep_rate) * value  * keep_rate
+                            (student_model_dict[key] + 0.5 * student_model_dict[
+                                key.replace('weak_score_fsod', 'weak_score_wsod')]) *
+                            (1 - keep_rate) * value * keep_rate
                     )
                 else:
 
                     new_teacher_dict[key] = (
-                        student_model_dict[key] *
-                        (1 - keep_rate) + value * keep_rate
-                )
+                            student_model_dict[key] *
+                            (1 - keep_rate) + value * keep_rate
+                    )
             else:
                 raise Exception("{} is not found in student model".format(key))
-
 
         self.model_teacher.load_state_dict(new_teacher_dict)
 
