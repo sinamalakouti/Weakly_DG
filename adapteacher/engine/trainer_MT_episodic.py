@@ -55,7 +55,7 @@ class BaselineTrainer(DefaultTrainer):
 
         if comm.get_world_size() > 1:
             model = DistributedDataParallel(
-                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False
+                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameter=True
             )
 
         TrainerBase.__init__(self)
