@@ -22,20 +22,22 @@ import adapteacher.data.datasets.builtin
 # from adapteacher.modeling.meta_arch.rcnn import \
 #     DGobjGeneralizedRCNN  # TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
 
-from adapteacher.modeling.meta_arch.rcnn_MT import \
-    DGobjGeneralizedRCNN  # TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
+# from adapteacher.modeling.meta_arch.rcnn_MT import \
+#     DGobjGeneralizedRCNN  # TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
 
-from adapteacher.modeling.roi_heads.roi_heads import StandardROIHeadsPseudoLab, myHead
-from adapteacher.modeling.proposal_generator.rpn import PseudoLabRPN
+# from adapteacher.modeling.roi_heads.roi_heads import StandardROIHeadsPseudoLab, myHead
+# from adapteacher.modeling.proposal_generator.rpn import PseudoLabRPN
 # from adapteacher.engine.trainer_weak import ATeacherTrainer, BaselineTrainer
 # from adapteacher.engine.my_trainer import ATeacherTrainer, BaselineTrainer
 
 
 ###### MT MODEL
-from adapteacher.modeling.roi_heads.roi_heads import StandardROIHeadsPseudoLab, myHead
-from adapteacher.modeling.meta_arch.rcnn_MT import \
+from adapteacher.modeling.roi_heads.roi_heads_DS import  myHead
+from adapteacher.modeling.proposal_generator.rpn import PseudoLabRPN
+from adapteacher.modeling.meta_arch.rcnn_DS import \
     DGobjGeneralizedRCNN  # TwoStagePseudoLabGeneralizedRCNN, DAobjTwoStagePseudoLabGeneralizedRCNN
-from adapteacher.engine.trainer_MT import ATeacherTrainer, BaselineTrainer
+# from adapteacher.engine.trainer_MT import ATeacherTrainer, BaselineTrainer
+from adapteacher.engine.trainer_MT_episodic import ATeacherTrainer, BaselineTrainer
 #### ORIGNAL PAPER
 
 #
@@ -59,8 +61,6 @@ def setup(args):
     cfg.merge_from_list(args.opts)
     cfg.freeze()
     default_setup(cfg, args)
-    if not torch.cuda.is_available():
-        cfg['config'] = 'configs/my_city_config.yaml'
         # cfg['config'] = 'configs/faster_rcnn_VGG_cross_city.yaml'
     cfg['num-gpus'] = 4
     if not torch.cuda.is_available():

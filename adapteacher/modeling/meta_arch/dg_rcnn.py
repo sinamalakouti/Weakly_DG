@@ -100,6 +100,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
         self.generator_IMG = None
         self.proposal_generator = proposal_generator
         self.roi_heads = roi_heads
+
         self.input_format = input_format
         self.vis_period = vis_period
         if vis_period > 0:
@@ -221,13 +222,13 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             features_t_orig = self.backbone(images_t.tensor)
 
             features_t = grad_reverse(features_t_orig[self.dis_type])
-            # features_t = grad_reverse(features_t['p2'])
+
             D_img_out_t = self.D_img(features_t)
             loss_D_img_t = F.binary_cross_entropy_with_logits(D_img_out_t,
                                                               torch.FloatTensor(D_img_out_t.data.size()).fill_(
                                                                   target_label).to(self.device))
-
             losses = {}
+
             losses["loss_D_img_s"] = loss_D_img_s
             losses["loss_D_img_t"] = loss_D_img_t
 
@@ -242,8 +243,12 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
 
         features_DI = self.backbone(images.tensor)
 
-        # TODO: remove the usage of if else here. This needs to be re-organized
-        if branch.startswith("all") or branch.startswith("supervised_only"):
+        if branch.startswith("supervised"):
+            features_s = grad_reverse(features_DI[self.dis_type])
+            D_img_out_s = self.D_img(features_s)
+            loss_D_img_s = F.binary_cross_entropy_with_logits(D_img_out_s,
+                                                              torch.FloatTensor(D_img_out_s.data.size()).fill_(
+                                                                  source_label).to(self.device))
 
             # Region proposal network
             proposals_rpn, proposal_losses = self.proposal_generator(
@@ -270,25 +275,8 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             losses = {}
             losses.update(detector_losses)
             losses.update(proposal_losses)
+            losses["loss_D_img_s"] = loss_D_img_s * 0.001
 
-            return losses, [], [], None
-        elif branch.startswith("mil"):
-            with torch.no_grad():
-                proposals_rpn, _ = self.proposal_generator(
-                    images, features_DI, None, compute_loss=False
-                )
-
-            # roi_head lower branch
-            _, detector_losses = self.roi_heads(
-                images,
-                features_DI,
-                proposals_rpn,
-                compute_loss=True,
-                targets=gt_instances,
-                branch=branch,
-            )
-            losses = {}
-            losses.update(detector_losses)
             return losses, [], [], None
 
         elif branch == "unsup_data_weak":  # TODO what is this for :)

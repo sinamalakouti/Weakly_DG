@@ -508,25 +508,28 @@ class ATeacherTrainer(DefaultTrainer):
 
         # burn-in stage (supervised training with labeled data)
         if self.iter < self.cfg.SEMISUPNET.BURN_UP_STEP:
+            loss_dict = {}
 
             # input both strong and weak supervised data into model
             label_data_q.extend(label_data_k)
 
-            loss_dict, _, _, _ = self.model(
-                label_data_q, branch="all") # todo
+            record_dict, _, _, _ = self.model(
+                label_data_q, branch="all_fsod")
 
             # weight losses
-            record_dict = {}
-            for key in loss_dict.keys():
-                if key[:4] == "loss":
-                    record_dict[key] = loss_dict[key] * 1
 
-            unlabel_data_q.extend(unlabel_data_k)
-            loss_dict, _, _, _ = self.model(
-                label_data_q, branch="mil")  # todo
             for key in record_dict.keys():
                 if key[:4] == "loss":
-                    loss_dict[key +"_target"] = record_dict[key] * 0.1
+                    loss_dict[key] = record_dict[key] * 1
+
+            unlabel_data_q.extend(unlabel_data_k)
+            record_dict, _, _, _ = self.model(
+                label_data_q, branch="mil_wsod")
+
+            for key in record_dict.keys():
+                if key[:4] == "loss":
+                    loss_dict[key +"_wsod"] = record_dict[key] * 1
+
             for i_index in range(len(unlabel_data_k)):
                 # unlabel_data_item = {}
                 for k, v in unlabel_data_k[i_index].items():
@@ -543,8 +546,6 @@ class ATeacherTrainer(DefaultTrainer):
                 if (
                         key == "loss_D_img_s" or key == "loss_D_img_t"
                 ):  # set weight for discriminator
-                # import pdb
-                # pdb.set_trace()
                     loss_dict[key] = loss_dict[
                                      key] * self.cfg.SEMISUPNET.DIS_LOSS_WEIGHT * 0.1
                 elif key[:4] == "loss":
@@ -571,10 +572,10 @@ class ATeacherTrainer(DefaultTrainer):
             gt_unlabel_k = self.get_label(unlabel_data_k)
             # gt_unlabel_q = self.get_label_test(unlabel_data_q)
             record_all_weak_data, _, _, _ = self.model(
-                unlabel_data_k + unlabel_data_q, branch="mil"
+                unlabel_data_k + unlabel_data_q, branch="mil_wsod"
             )
             for key in record_all_weak_data.keys():
-                record_dict[key +"_target"] = record_all_weak_data[key]
+                record_dict[key +"_wsod"] = record_all_weak_data[key]
             #  0. remove unlabeled data labels
             unlabel_data_q = self.remove_label(unlabel_data_q)
             unlabel_data_k = self.remove_label(unlabel_data_k)
@@ -633,13 +634,13 @@ class ATeacherTrainer(DefaultTrainer):
 
             # 4. input both strongly and weakly augmented labeled data into student model
             record_all_label_data, _, _, _ = self.model(
-                all_label_data, branch="all"
+                all_label_data, branch="all_fsod"
             )
             record_dict.update(record_all_label_data)
 
             # 5. input strongly augmented unlabeled data into model
             record_all_unlabel_data, _, _, _ = self.model(
-                all_unlabel_data, branch="supervised_only"
+                all_unlabel_data, branch="supervised_wsod"
             )
             new_record_all_unlabel_data = {}
             for key in record_all_unlabel_data.keys():
@@ -744,13 +745,29 @@ class ATeacherTrainer(DefaultTrainer):
 
         new_teacher_dict = OrderedDict()
         for key, value in self.model_teacher.state_dict().items():
+
+
+
             if key in student_model_dict.keys():
-                new_teacher_dict[key] = (
+                if 'cls_score_fsod' in key:
+                    new_teacher_dict[key] = (
+                            (student_model_dict[key] + 0.5 * student_model_dict[key.replace('cls_score_fsod', 'cls_score_wsod')]) *
+                            (1 - keep_rate) + value * keep_rate
+                    )
+                elif 'weak_score_fsod' in key:
+                    new_teacher_dict[key] = (
+                            (student_model_dict[key] + 0.5 * student_model_dict[key.replace('weak_score_fsod', 'weak_score_wsod')]) *
+                            (1 - keep_rate) * value  * keep_rate
+                    )
+                else:
+
+                    new_teacher_dict[key] = (
                         student_model_dict[key] *
                         (1 - keep_rate) + value * keep_rate
                 )
             else:
                 raise Exception("{} is not found in student model".format(key))
+
 
         self.model_teacher.load_state_dict(new_teacher_dict)
 

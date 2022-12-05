@@ -130,6 +130,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
     @classmethod
     def from_config(cls, cfg):
         backbone = build_backbone(cfg)
+
         return {
             "backbone": backbone,
             "proposal_generator": build_proposal_generator(cfg, backbone.output_shape()),
@@ -243,7 +244,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
         features_DI = self.backbone(images.tensor)
 
         # TODO: remove the usage of if else here. This needs to be re-organized
-        if branch.startswith("all") or branch.startswith("supervised_only"):
+        if branch.startswith("all_fsod"):
 
             # Region proposal network
             proposals_rpn, proposal_losses = self.proposal_generator(
@@ -251,6 +252,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             )
 
             # roi_head lower branch
+
             _, detector_losses = self.roi_heads(
                 images,
                 features_DI,
@@ -272,7 +274,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             losses.update(proposal_losses)
 
             return losses, [], [], None
-        elif branch.startswith("mil"):
+        elif branch.startswith("mil_wsod"):
             with torch.no_grad():
                 proposals_rpn, _ = self.proposal_generator(
                     images, features_DI, None, compute_loss=False
@@ -290,7 +292,22 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             losses = {}
             losses.update(detector_losses)
             return losses, [], [], None
-
+        elif branch == 'episodic_fsod' or branch == 'episodic_wsod':
+            with torch.no_grad():
+                proposals_rpn, _ = self.proposal_generator(
+                    images, features_DI, None, compute_loss=False
+                )
+            _, detector_losses = self.roi_heads(
+                images,
+                features_DI,
+                proposals_rpn,
+                compute_loss=False,
+                targets=gt_instances,
+                branch=branch,
+            )
+            losses = {}
+            losses.update(detector_losses)
+            return losses, [], [], None
         elif branch == "unsup_data_weak":  # TODO what is this for :)
             """
             unsupervised weak branch: input image without any ground-truth label; output proposals of rpn and roi-head
@@ -308,11 +325,31 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
                 proposals_rpn,
                 targets=None,
                 compute_loss=False,
-                # branch=branch,
+                branch=branch,
             )
             return {}, proposals_rpn, proposals_roih, ROI_predictions
+        elif branch == 'supervised_wsod':
+
+            proposals_rpn, proposal_losses = self.proposal_generator(
+                images, features_DI, gt_instances
+            )
+
+            # roi_head lower branch
+            _, detector_losses = self.roi_heads(
+                images,
+                features_DI,
+                proposals_rpn,
+                compute_loss=True,
+                targets=gt_instances,
+                branch=branch,
+            )
+            losses = {}
+            losses.update(detector_losses)
+            return losses, [], [], None
         elif branch == "backbone":
             return features_DI, images, gt_instances
+        else:
+            assert False, "rcnn_DS:  wrong branch name"
 
     def visualize_training(self, batched_inputs, proposals, branch=""):
         """
