@@ -66,7 +66,6 @@ class DSFastRCNNOutputLayers(nn.Module):
         # prediction layer for num_classes foreground classes and one background class (hence + 1)
 
 
-        self.cls_score = nn.Linear(input_size, num_classes + 1)
         num_bbox_reg_classes = 1 if cls_agnostic_bbox_reg else num_classes
         box_dim = len(box2box_transform.weights)
 
