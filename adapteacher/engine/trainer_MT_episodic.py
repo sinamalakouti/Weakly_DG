@@ -550,7 +550,7 @@ class ATeacherTrainer(DefaultTrainer):
                                      key] * self.cfg.SEMISUPNET.DIS_LOSS_WEIGHT * 0.1
                 elif key[:4] == "loss":
                     loss_dict[key] = loss_dict[key] * 1
-
+            record_dict = loss_dict
             losses = sum(loss_dict.values())
 
         else:
