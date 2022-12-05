@@ -65,7 +65,6 @@ class DSFastRCNNOutputLayers(nn.Module):
         input_size = input_shape.channels * (input_shape.width or 1) * (input_shape.height or 1)
         # prediction layer for num_classes foreground classes and one background class (hence + 1)
 
-
         num_bbox_reg_classes = 1 if cls_agnostic_bbox_reg else num_classes
         box_dim = len(box2box_transform.weights)
 
@@ -160,8 +159,12 @@ class DSFastRCNNOutputLayers(nn.Module):
             weak_scores = self.weak_score_fsod(x)
             return scores, proposal_deltas, weak_scores
         else:
-            assert  False, "faster_rcnn_DS:  wrong branch name :)"
 
+            assert not self.training, "faster_rcnn_DS:  wrong branch name :)"
+            scores = self.cls_score_fsod(x)
+            proposal_deltas = self.bbox_pred_fsod(x)
+            weak_scores = self.weak_score_fsod(x)
+            return scores, proposal_deltas, weak_scores
 
     def predict_probs_img(self, pred_class_logits, pred_det_logits, num_preds_per_image):
         cls_scores = F.softmax(pred_class_logits[:, :-1], dim=1)
