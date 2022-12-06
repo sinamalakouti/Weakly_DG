@@ -55,7 +55,7 @@ class BaselineTrainer(DefaultTrainer):
 
         if comm.get_world_size() > 1:
             model = DistributedDataParallel(
-                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameter=True
+                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False
             )
 
         TrainerBase.__init__(self)
@@ -298,7 +298,7 @@ class ATeacherTrainer(DefaultTrainer):
         # For training, wrap with DDP. But don't need this for inference.
         if comm.get_world_size() > 1:
             model = DistributedDataParallel(
-                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False, find_unused_parameters=True
+                model, device_ids=[comm.get_local_rank()], broadcast_buffers=False
             )
 
         TrainerBase.__init__(self)
@@ -715,6 +715,21 @@ class ATeacherTrainer(DefaultTrainer):
                 loss_dict[key + '_episodic_fsod'] = record_dict_fsod[
                     key
                 ]
+
+
+            # all_domain_data = label_data_k + unlabel_data_k
+            record_all_domain_data, _, _, _ = self.model(all_domain_data, branch="domain")
+            loss_dict.update(record_all_domain_data)
+            for key in loss_dict.keys():
+                if (
+                            key == "loss_D_img_s" or key == "loss_D_img_t"
+                    ):  # set weight for discriminator
+                        # import pdb
+                        # pdb.set_trace()
+                        loss_dict[key] = loss_dict[
+                                             key] * 0  # Need to modify defaults and yaml
+                    else:  # supervised loss
+                        loss_dict[key] = loss_dict[key] * 1
             losses = sum(loss_dict.values())
             with torch.no_grad():
                 metrics_dict = loss_dict
