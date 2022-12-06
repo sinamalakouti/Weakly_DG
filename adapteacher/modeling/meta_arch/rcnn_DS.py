@@ -295,7 +295,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
         elif branch == 'episodic_fsod' or branch == 'episodic_wsod':
             with torch.no_grad():
                 proposals_rpn, proposal_losses = self.proposal_generator(
-                    images, features_DI, None, compute_loss=False
+                    images, features_DI, None, compute_loss=True
                 )
             _, detector_losses = self.roi_heads(
                 images,
