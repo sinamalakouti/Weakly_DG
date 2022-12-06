@@ -721,7 +721,7 @@ class ATeacherTrainer(DefaultTrainer):
             record_all_domain_data, _, _, _ = self.model(all_domain_data, branch="domain")
             loss_dict.update(record_all_domain_data)
             for key in loss_dict.keys():
-                if key == "loss_D_img_s" or key == "loss_D_img_t":
+                if key == "loss_D_img_s" or key == "loss_D_img_t" or 'rpn' in key:
                         loss_dict[key] = loss_dict[
                                              key] * 0  # Need to modify defaults and yaml
                 else:  # supervised loss

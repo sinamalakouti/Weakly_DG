@@ -294,7 +294,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             return losses, [], [], None
         elif branch == 'episodic_fsod' or branch == 'episodic_wsod':
             with torch.no_grad():
-                proposals_rpn, _ = self.proposal_generator(
+                proposals_rpn, proposal_losses = self.proposal_generator(
                     images, features_DI, None, compute_loss=False
                 )
             _, detector_losses = self.roi_heads(
@@ -307,6 +307,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             )
             losses = {}
             losses.update(detector_losses)
+            losses.update(losses.update(proposal_losses))
             return losses, [], [], None
         elif branch == "unsup_data_weak":  # TODO what is this for :)
             """
