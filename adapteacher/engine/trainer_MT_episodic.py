@@ -703,19 +703,29 @@ class ATeacherTrainer(DefaultTrainer):
                 unlabel_data_k, branch="episodic_wsod"
             )
             for key in record_dict.keys():
-                loss_dict[key + '_episodic_wsod'] = record_dict[
-                    key
-                ]
+                if 'rpn' not in key:
+                    loss_dict[key + '_episodic_wsod'] = record_dict[
+                        key
+                    ]
+                else:
+                    loss_dict[key + '_episodic_wsod'] = record_dict[
+                        key
+                    ] * 0
+
 
             record_dict_fsod, _, _, _ = self.model(
                 label_data_k, branch="episodic_fsod"
             )
             record_dict.update(record_dict_fsod)
             for key in record_dict.keys():
-                loss_dict[key + '_episodic_fsod'] = record_dict_fsod[
-                    key
-                ]
-
+                if 'rpn' not in key:
+                    loss_dict[key + '_episodic_fsod'] = record_dict_fsod[
+                        key
+                    ]
+                else:
+                    loss_dict[key + '_episodic_fsod'] = record_dict[
+                                                            key
+                                                        ] * 0
 
             # all_domain_data = label_data_k + unlabel_data_k
             record_all_domain_data, _, _, _ = self.model(all_domain_data, branch="domain")
