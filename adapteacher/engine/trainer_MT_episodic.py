@@ -719,16 +719,13 @@ class ATeacherTrainer(DefaultTrainer):
 
             # all_domain_data = label_data_k + unlabel_data_k
             record_all_domain_data, _, _, _ = self.model(all_domain_data, branch="domain")
-            loss_dict.update(record_all_domain_data)
-            for key in loss_dict.keys():
-                if key == "loss_D_img_s" or key == "loss_D_img_t" or 'rpn' in key:
-                        loss_dict[key] = loss_dict[
-                                             key] * 0  # Need to modify defaults and yaml
-                else:  # supervised loss
-                        loss_dict[key] = loss_dict[key] * 1
+            for key in record_all_domain_data:
+                loss_dict[key + "_episodic"] = record_all_domain_data[key] * 0
+
             losses = sum(loss_dict.values())
+
             with torch.no_grad():
-                metrics_dict = loss_dict
+                metrics_dict.update(loss_dict)
                 # wandb_logs_dict = metrics_dict.copy()
                 # wandb_logs_dict['losses'] = losses
                 # wandb_logs_dict['iter'] = self.iter
