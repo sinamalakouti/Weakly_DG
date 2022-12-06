@@ -699,6 +699,10 @@ class ATeacherTrainer(DefaultTrainer):
         if self.iter > self.cfg.SEMISUPNET.BURN_UP_STEP // 2:
             _, label_data_k, _, unlabel_data_k = data
             loss_dict = {}
+
+            for param in self.model.parameters():
+                if "weak_score" in param:
+                    param.requires_grad = False
             record_dict, _, _, _ = self.model(
                 unlabel_data_k, branch="episodic_wsod"
             )
@@ -747,6 +751,9 @@ class ATeacherTrainer(DefaultTrainer):
             self.optimizer.zero_grad()
             losses.backward()
             self.optimizer.step()
+
+            for param in self.model.parameters():
+                    param.requires_grad = True
 
     def _write_metrics(self, metrics_dict: dict):
         metrics_dict = {
