@@ -293,13 +293,10 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             losses.update(detector_losses)
             return losses, [], [], None
         elif branch == 'episodic_fsod' or branch == 'episodic_wsod':
-            if  branch == 'episodic_fsod':
-                target = gt_instances
-            else:
-                target = None
+
             with torch.no_grad():
                 proposals_rpn, proposal_losses = self.proposal_generator(
-                    images, features_DI, target, compute_loss=True
+                    images, features_DI, gt_instances, compute_loss=True
                 )
             _, detector_losses = self.roi_heads(
                 images,
