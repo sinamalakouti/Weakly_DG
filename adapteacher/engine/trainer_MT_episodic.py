@@ -700,8 +700,8 @@ class ATeacherTrainer(DefaultTrainer):
             _, label_data_k, _, unlabel_data_k = data
             loss_dict = {}
 
-            for param in self.model.parameters():
-                if "weak_score" in param:
+            for name, param in self.model.named_parameters():
+                if "weak_score" in name:
                     param.requires_grad = False
             record_dict, _, _, _ = self.model(
                 unlabel_data_k, branch="episodic_wsod"
