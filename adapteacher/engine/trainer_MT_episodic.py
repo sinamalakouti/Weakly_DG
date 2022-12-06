@@ -721,14 +721,10 @@ class ATeacherTrainer(DefaultTrainer):
             record_all_domain_data, _, _, _ = self.model(all_domain_data, branch="domain")
             loss_dict.update(record_all_domain_data)
             for key in loss_dict.keys():
-                if (
-                            key == "loss_D_img_s" or key == "loss_D_img_t"
-                    ):  # set weight for discriminator
-                        # import pdb
-                        # pdb.set_trace()
+                if key == "loss_D_img_s" or key == "loss_D_img_t":
                         loss_dict[key] = loss_dict[
                                              key] * 0  # Need to modify defaults and yaml
-                    else:  # supervised loss
+                else:  # supervised loss
                         loss_dict[key] = loss_dict[key] * 1
             losses = sum(loss_dict.values())
             with torch.no_grad():
