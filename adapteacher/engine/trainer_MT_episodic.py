@@ -547,7 +547,7 @@ class ATeacherTrainer(DefaultTrainer):
                         key == "loss_D_img_s" or key == "loss_D_img_t"
                 ):  # set weight for discriminator
                     loss_dict[key] = loss_dict[
-                                         key] * self.cfg.SEMISUPNET.DIS_LOSS_WEIGHT * 0.1
+                                         key] * 0.01
                 elif key[:4] == "loss":
                     loss_dict[key] = loss_dict[key] * 1
             record_dict = loss_dict
@@ -696,7 +696,7 @@ class ATeacherTrainer(DefaultTrainer):
         losses.backward()
         self.optimizer.step()
 
-        if self.iter > self.cfg.SEMISUPNET.BURN_UP_STEP // 2:
+        if self.iter > 100:
             _, label_data_k, _, unlabel_data_k = data
 
             del _
@@ -715,9 +715,8 @@ class ATeacherTrainer(DefaultTrainer):
                     ]
                 else:
                     loss_dict[key + '_episodic_wsod'] = record_dict[
-                        key
-                    ] * 0
-
+                                                            key
+                                                        ] * 0
 
             record_dict_fsod, _, _, _ = self.model(
                 label_data_k, branch="episodic_fsod"
@@ -753,9 +752,6 @@ class ATeacherTrainer(DefaultTrainer):
             self.optimizer.zero_grad()
             losses.backward()
             self.optimizer.step()
-
-            for param in self.model.parameters():
-                    param.requires_grad = True
 
     def _write_metrics(self, metrics_dict: dict):
         metrics_dict = {
