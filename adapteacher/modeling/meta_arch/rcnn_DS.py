@@ -308,7 +308,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             )
             losses = {}
             losses.update(detector_losses)
-            losses.update(losses.update(proposal_losses))
+            losses.update(proposal_losses)
             return losses, [], [], None
         elif branch == "unsup_data_weak":  # TODO what is this for :)
             """
