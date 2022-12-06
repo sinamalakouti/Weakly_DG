@@ -698,6 +698,8 @@ class ATeacherTrainer(DefaultTrainer):
 
         if self.iter > self.cfg.SEMISUPNET.BURN_UP_STEP // 2:
             _, label_data_k, _, unlabel_data_k = data
+
+            del _
             loss_dict = {}
 
             for name, param in self.model.named_parameters():
