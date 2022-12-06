@@ -702,7 +702,7 @@ class ATeacherTrainer(DefaultTrainer):
 
             for name, param in self.model.named_parameters():
                 if "weak_score" in name:
-                    param.requires_grad = False
+                    param.grad = None
             record_dict, _, _, _ = self.model(
                 unlabel_data_k, branch="episodic_wsod"
             )
