@@ -786,13 +786,13 @@ class ATeacherTrainer(DefaultTrainer):
             if key in student_model_dict.keys():
                 if 'cls_score_fsod' in key:
                     new_teacher_dict[key] = (
-                            (student_model_dict[key] + 0.5 * student_model_dict[
+                            ( 0.8 * student_model_dict[key] + 0.2 * student_model_dict[
                                 key.replace('cls_score_fsod', 'cls_score_wsod')]) *
                             (1 - keep_rate) + value * keep_rate
                     )
                 elif 'weak_score_fsod' in key:
                     new_teacher_dict[key] = (
-                            (student_model_dict[key] + 0.5 * student_model_dict[
+                            ( 0.8 * student_model_dict[key] + 0.2 * student_model_dict[
                                 key.replace('weak_score_fsod', 'weak_score_wsod')]) *
                             (1 - keep_rate) * value * keep_rate
                     )
