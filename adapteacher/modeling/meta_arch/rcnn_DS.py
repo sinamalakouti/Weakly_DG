@@ -245,7 +245,11 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
 
         # TODO: remove the usage of if else here. This needs to be re-organized
         if branch.startswith("all_fsod"):
-
+            features_s = grad_reverse(features_DI[self.dis_type])
+            D_img_out_s = self.D_img(features_s)
+            loss_D_img_s = F.binary_cross_entropy_with_logits(D_img_out_s,
+                                                              torch.FloatTensor(D_img_out_s.data.size()).fill_(
+                                                                  source_label).to(self.device))
             # Region proposal network
             proposals_rpn, proposal_losses = self.proposal_generator(
                 images, features_DI, gt_instances
@@ -272,6 +276,7 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             losses = {}
             losses.update(detector_losses)
             losses.update(proposal_losses)
+            losses["loss_D_img_s"] = loss_D_img_s * 0.001
 
             return losses, [], [], None
         elif branch.startswith("mil_wsod"):
@@ -294,7 +299,14 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             return losses, [], [], None
         elif branch == 'episodic_fsod' or branch == 'episodic_wsod':
 
-
+            if branch == 'episodic_fsod':
+                features_s = grad_reverse(features_DI[self.dis_type])
+                D_img_out_s = self.D_img(features_s)
+                loss_D_img_s = F.binary_cross_entropy_with_logits(D_img_out_s,
+                                                                  torch.FloatTensor(D_img_out_s.data.size()).fill_(
+                                                                      source_label).to(self.device))
+            else:
+                loss_D_img_s = None
             proposals_rpn, proposal_losses = self.proposal_generator(
                 images, features_DI, gt_instances, compute_loss=True
             )
@@ -309,6 +321,8 @@ class DGobjGeneralizedRCNN(GeneralizedRCNN):
             losses = {}
             losses.update(detector_losses)
             losses.update(proposal_losses)
+            if loss_D_img_s is not None:
+                losses['loss_D_img_s'] = loss_D_img_s * 0.001
             return losses, [], [], None
         elif branch == "unsup_data_weak":  # TODO what is this for :)
             """

@@ -530,26 +530,6 @@ class ATeacherTrainer(DefaultTrainer):
                 if key[:4] == "loss":
                     loss_dict[key + "_wsod"] = record_dict[key] * 1
 
-            for i_index in range(len(unlabel_data_k)):
-                # unlabel_data_item = {}
-                for k, v in unlabel_data_k[i_index].items():
-                    # label_data_k[i_index][k + "_unlabeled"] = v
-                    label_data_k[i_index][k + "_unlabeled"] = v
-                # unlabel_data_k[i_index] = unlabel_data_item
-
-            all_domain_data = label_data_k
-            # all_domain_data = label_data_k + unlabel_data_k
-            record_all_domain_data, _, _, _ = self.model(all_domain_data, branch="domain")
-            loss_dict.update(record_all_domain_data)
-
-            for key in loss_dict.keys():
-                if (
-                        key == "loss_D_img_s" or key == "loss_D_img_t"
-                ):  # set weight for discriminator
-                    loss_dict[key] = loss_dict[
-                                         key] * 0.01
-                elif key[:4] == "loss":
-                    loss_dict[key] = loss_dict[key] * 1
             record_dict = loss_dict
             losses = sum(loss_dict.values())
 
@@ -696,14 +676,14 @@ class ATeacherTrainer(DefaultTrainer):
         losses.backward()
         self.optimizer.step()
 
-        if self.iter > 100:
+        if self.iter >= self.cfg.SEMISUPNET.BURN_UP_STEP + 1000:
             _, label_data_k, _, unlabel_data_k = data
 
             del _
             loss_dict = {}
 
             for name, param in self.model.named_parameters():
-                if "weak_score" in name:
+                if "cls_score" not in name or "box_head" not in name:
                     param.grad = None
             record_dict, _, _, _ = self.model(
                 unlabel_data_k, branch="episodic_wsod"
@@ -732,10 +712,10 @@ class ATeacherTrainer(DefaultTrainer):
                                                             key
                                                         ] * 0
 
-            # all_domain_data = label_data_k + unlabel_data_k
-            record_all_domain_data, _, _, _ = self.model(all_domain_data, branch="domain")
-            for key in record_all_domain_data:
-                loss_dict[key + "_episodic"] = record_all_domain_data[key] * 0
+            # # all_domain_data = label_data_k + unlabel_data_k
+            # record_all_domain_data, _, _, _ = self.model(all_domain_data, branch="domain")
+            # for key in record_all_domain_data:
+            #     loss_dict[key + "_episodic"] = record_all_domain_data[key] * 0
 
             losses = sum(loss_dict.values())
 
